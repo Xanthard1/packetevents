@@ -26,8 +26,10 @@ import com.github.retrooper.packetevents.protocol.entity.data.EntityMetadataProv
 import com.github.retrooper.packetevents.protocol.item.type.ItemType;
 import com.github.retrooper.packetevents.protocol.item.type.ItemTypes;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.player.TextureProperty;
 import com.github.retrooper.packetevents.protocol.world.Location;
 import com.github.retrooper.packetevents.util.MathUtil;
+import com.github.retrooper.packetevents.util.UUIDUtil;
 import com.github.retrooper.packetevents.util.Vector3d;
 import com.github.retrooper.packetevents.wrapper.PacketWrapper;
 
@@ -47,6 +49,8 @@ public class WrapperPlayServerSpawnPlayer extends PacketWrapper<WrapperPlayServe
     @Deprecated
     private ItemType item;
     private List<EntityData<?>> entityMetadata;
+    private String legacyName = "";
+    private List<TextureProperty> legacyProperties = new ArrayList<>();
 
     public WrapperPlayServerSpawnPlayer(PacketSendEvent event) {
         super(event);
@@ -82,7 +86,19 @@ public class WrapperPlayServerSpawnPlayer extends PacketWrapper<WrapperPlayServe
     @Override
     public void read() {
         entityID = readVarInt();
-        uuid = readUUID();
+        if (serverVersion.isNewerThanOrEquals(ServerVersion.V_1_8)) {
+            uuid = readUUID();
+        } else {
+            uuid = UUIDUtil.fromStringAnyFormat(readString());
+            legacyName = readString(16);
+            legacyProperties = new ArrayList<>();
+            if (serverVersion.isNewerThanOrEquals(ServerVersion.V_1_7_6)) {
+                int count = readVarInt();
+                for (int i = 0; i < count; i++) {
+                    legacyProperties.add(new TextureProperty(readString(), readString(), readString()));
+                }
+            }
+        }
         boolean v1_9 = serverVersion.isNewerThanOrEquals(ServerVersion.V_1_9);
         if (v1_9) {
             position = new Vector3d(readDouble(), readDouble(), readDouble());
@@ -106,7 +122,20 @@ public class WrapperPlayServerSpawnPlayer extends PacketWrapper<WrapperPlayServe
     @Override
     public void write() {
         writeVarInt(entityID);
-        writeUUID(uuid);
+        if (serverVersion.isNewerThanOrEquals(ServerVersion.V_1_8)) {
+            writeUUID(uuid);
+        } else {
+            writeString(serverVersion.isNewerThanOrEquals(ServerVersion.V_1_7_6) ? uuid.toString() : UUIDUtil.toStringWithoutDashes(uuid));
+            writeString(legacyName, 16);
+            if (serverVersion.isNewerThanOrEquals(ServerVersion.V_1_7_6)) {
+                writeVarInt(legacyProperties.size());
+                for (TextureProperty property : legacyProperties) {
+                    writeString(property.getName());
+                    writeString(property.getValue());
+                    writeString(property.getSignature() == null ? "" : property.getSignature());
+                }
+            }
+        }
         boolean v1_9 = serverVersion.isNewerThanOrEquals(ServerVersion.V_1_9);
         if (v1_9) {
             writeDouble(position.getX());
@@ -136,6 +165,8 @@ public class WrapperPlayServerSpawnPlayer extends PacketWrapper<WrapperPlayServe
         pitch = wrapper.pitch;
         item = wrapper.item;
         entityMetadata = wrapper.entityMetadata;
+        legacyName = wrapper.legacyName;
+        legacyProperties = wrapper.legacyProperties;
     }
 
     public int getEntityId() {
@@ -201,5 +232,21 @@ public class WrapperPlayServerSpawnPlayer extends PacketWrapper<WrapperPlayServe
     @Deprecated
     public void setItem(ItemType item) {
         this.item = item;
+    }
+
+    public String getLegacyName() {
+        return legacyName;
+    }
+
+    public void setLegacyName(String legacyName) {
+        this.legacyName = legacyName;
+    }
+
+    public List<TextureProperty> getLegacyProperties() {
+        return legacyProperties;
+    }
+
+    public void setLegacyProperties(List<TextureProperty> legacyProperties) {
+        this.legacyProperties = legacyProperties;
     }
 }

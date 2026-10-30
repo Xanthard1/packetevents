@@ -1,3 +1,4 @@
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import xyz.jpenilla.runpaper.RunPaperExtension
 import xyz.jpenilla.runpaper.task.RunServer
 
@@ -13,7 +14,10 @@ repositories {
     maven("https://repo.viaversion.com/everything/")
 }
 
+val bundledGson: Configuration by configurations.creating
+
 dependencies {
+    bundledGson(libs.gson)
     compileOnly(libs.netty)
     shadow(libs.bundles.adventure)
     compileShadowOnly(libs.bstats.bukkit)
@@ -32,11 +36,30 @@ java {
 }
 
 tasks {
+    // 1.7 servers ship netty as net.minecraft.util.io.netty; ServerRuntime picks these copies there.
+    val legacyNetty by registering(ShadowJar::class) {
+        group = rootProject.name
+        archiveFileName = "legacy-netty.jar"
+        destinationDirectory = layout.buildDirectory.dir("legacy")
+        configurations = emptyList()
+        from(sourceSets.main.get().output) {
+            include("io/github/retrooper/packetevents/injector/**", "io/github/retrooper/packetevents/netty/**")
+        }
+        relocate("io.netty", "net.minecraft.util.io.netty")
+        relocate("io.github.retrooper.packetevents.injector", "io.github.retrooper.packetevents.legacy.injector")
+        relocate("io.github.retrooper.packetevents.netty", "io.github.retrooper.packetevents.legacy.netty")
+    }
+
     shadowJar {
         // Paper doesn't need to map spigot -> mojang since we support both
         manifest {
             attributes["paperweight-mappings-namespace"] = "mojang"
         }
+        from(legacyNetty.flatMap { it.archiveFile }.map { zipTree(it) })
+        from(bundledGson.elements.map { files -> files.map { zipTree(it) } }) {
+            exclude("META-INF/**", "module-info.class")
+        }
+        relocate("com.google.gson", "io.github.retrooper.packetevents.libs.gson")
     }
 
     // 1.8.8 - 1.16.5   = Java 8

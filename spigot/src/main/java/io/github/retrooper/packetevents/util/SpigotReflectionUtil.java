@@ -34,7 +34,7 @@ import com.github.retrooper.packetevents.util.reflection.ReflectionObject;
 import com.github.retrooper.packetevents.wrapper.PacketWrapper;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.MapMaker;
-import io.netty.buffer.PooledByteBufAllocator;
+import io.github.retrooper.packetevents.platform.ServerRuntime;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -394,7 +394,7 @@ public final class SpigotReflectionUtil {
         BLOCK_CLASS = getServerClass("world.level.block.Block", "Block");
         CRAFT_BLOCK_DATA_CLASS = getOBCClass("block.data.CraftBlockData");
 
-        GAME_PROFILE_CLASS = Reflection.getClassByNameWithoutException("com.mojang.authlib.GameProfile");
+        GAME_PROFILE_CLASS = Reflection.getClassByNameWithoutException(ServerRuntime.authlibClass("GameProfile"));
 
         CRAFT_WORLD_CLASS = getOBCClass("CraftWorld");
         CRAFT_PLAYER_CLASS = getOBCClass("entity.CraftPlayer");
@@ -546,7 +546,7 @@ public final class SpigotReflectionUtil {
     }
 
     public static Class<?> getNettyClass(String name) {
-        return Reflection.getClassByNameWithoutException("io.netty." + name);
+        return Reflection.getClassByNameWithoutException(ServerRuntime.nettyClass(name));
     }
 
     public static Entity getBukkitEntity(Object nmsEntity) {
@@ -612,8 +612,7 @@ public final class SpigotReflectionUtil {
 
     public static List<TextureProperty> getUserProfile(Player player) {
         if (PROPERTY_MAP_CLASS == null) {
-            PROPERTY_MAP_CLASS = Reflection.getClassByNameWithoutException("" +
-                    "com.mojang.authlib.properties.PropertyMap");
+            PROPERTY_MAP_CLASS = Reflection.getClassByNameWithoutException(ServerRuntime.authlibClass("properties.PropertyMap"));
             PROPERTY_MAP_GET_METHOD = Reflection.getMethodExact(PROPERTY_MAP_CLASS, "get", Collection.class, Object.class);
         }
 
@@ -886,7 +885,7 @@ public final class SpigotReflectionUtil {
     }
 
     public static com.github.retrooper.packetevents.protocol.item.ItemStack decodeBukkitItemStack(ItemStack in) {
-        Object buffer = PooledByteBufAllocator.DEFAULT.buffer();
+        Object buffer = ServerRuntime.pooledBuffer();
         try {
             // 3 reflection calls
             Object packetDataSerializer = createPacketDataSerializer(buffer);
@@ -902,7 +901,7 @@ public final class SpigotReflectionUtil {
     }
 
     public static ItemStack encodeBukkitItemStack(com.github.retrooper.packetevents.protocol.item.ItemStack in) {
-        Object buffer = PooledByteBufAllocator.DEFAULT.buffer();
+        Object buffer = ServerRuntime.pooledBuffer();
         try {
             PacketWrapper<?> wrapper = PacketWrapper.createUniversalPacketWrapper(buffer);
             wrapper.writeItemStack(in);

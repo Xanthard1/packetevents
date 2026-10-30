@@ -24,6 +24,7 @@ import com.github.retrooper.packetevents.protocol.ConnectionState;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.TextureProperty;
 import com.github.retrooper.packetevents.protocol.player.UserProfile;
+import com.github.retrooper.packetevents.util.UUIDUtil;
 import com.github.retrooper.packetevents.wrapper.PacketWrapper;
 import org.jetbrains.annotations.ApiStatus;
 
@@ -82,7 +83,7 @@ public class WrapperLoginServerLoginSuccess extends PacketWrapper<WrapperLoginSe
         if (serverVersion.isNewerThanOrEquals(ServerVersion.V_1_16)) {
             uuid = readUUID();
         } else {
-            uuid = UUID.fromString(readString(36));
+            uuid = UUIDUtil.fromStringAnyFormat(readString(36));
         }
         String username = readString(16);
         this.userProfile = new UserProfile(uuid, username);
@@ -112,6 +113,8 @@ public class WrapperLoginServerLoginSuccess extends PacketWrapper<WrapperLoginSe
     public void write() {
         if (serverVersion.isNewerThanOrEquals(ServerVersion.V_1_16)) {
             writeUUID(userProfile.getUUID());
+        } else if (serverVersion.isOlderThan(ServerVersion.V_1_7_6)) {
+            writeString(UUIDUtil.toStringWithoutDashes(userProfile.getUUID()), 36);
         } else {
             writeString(userProfile.getUUID().toString(), 36);
         }

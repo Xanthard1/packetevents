@@ -63,6 +63,20 @@ public class WrapperPlayServerMultiBlockChange extends PacketWrapper<WrapperPlay
             for (int i = 0; i < blockData.length; i++) {
                 blockData[i] = new EncodedBlock(chunkPosition, readVarLong());
             }
+        } else if (serverVersion.isOlderThan(ServerVersion.V_1_8)) {
+            int chunkX = readInt();
+            int chunkZ = readInt();
+            chunkPosition = new Vector3i(chunkX, 0, chunkZ);
+            int len = readUnsignedShort();
+            readInt();
+            blockData = new EncodedBlock[len];
+            for (int i = 0; i < len; i++) {
+                int record = readInt();
+                int x = (chunkX << 4) + (record >>> 28 & 15);
+                int z = (chunkZ << 4) + (record >> 24 & 15);
+                int y = record >> 16 & 255;
+                this.blockData[i] = new EncodedBlock(record & 0xFFFF, x, y, z);
+            }
         } else { // Copied from MCProtocolLib
             int chunkX = readInt();
             int chunkZ = readInt();
@@ -96,6 +110,15 @@ public class WrapperPlayServerMultiBlockChange extends PacketWrapper<WrapperPlay
             writeVarInt(blockData.length);
             for (EncodedBlock blockDatum : blockData) {
                 writeVarLong(blockDatum.toLong());
+            }
+        } else if (serverVersion.isOlderThan(ServerVersion.V_1_8)) {
+            writeInt(chunkPosition.getX());
+            writeInt(chunkPosition.getZ());
+            writeShort(this.blockData.length);
+            writeInt(this.blockData.length * 4);
+            for (EncodedBlock record : blockData) {
+                writeInt((record.getX() & 0xF) << 28 | (record.getZ() & 0xF) << 24
+                        | (record.getY() & 0xFF) << 16 | record.getBlockId() & 0xFFFF);
             }
         } else { // Copied from MCProtocolLib
             writeInt(chunkPosition.getX());

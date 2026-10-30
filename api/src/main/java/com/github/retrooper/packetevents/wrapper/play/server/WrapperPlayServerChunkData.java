@@ -43,6 +43,7 @@ import com.github.retrooper.packetevents.protocol.world.chunk.reader.impl.ChunkR
 import com.github.retrooper.packetevents.protocol.world.chunk.reader.impl.ChunkReader_v1_9;
 import com.github.retrooper.packetevents.wrapper.PacketWrapper;
 
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Map;
 import java.util.zip.DataFormatException;
@@ -159,7 +160,7 @@ public class WrapperPlayServerChunkData extends PacketWrapper<WrapperPlayServerC
         int dataLength;
         if (this.serverVersion.isOlderThanOrEquals(ServerVersion.V_1_7_10)) {
             // decompress data and replace contents of this packet wrapper with the chunk data temporarily
-            byte[] data = this.inflate(this.readByteArray(), chunkMask, fullChunk);
+            byte[] data = this.inflate(this.readBytes(this.readInt()), chunkMask, fullChunk);
             this.buffer = UnpooledByteBufAllocationHelper.wrappedBuffer(data);
             dataLength = data.length;
         } else {
@@ -277,7 +278,10 @@ public class WrapperPlayServerChunkData extends PacketWrapper<WrapperPlayServerC
         inflater.setInput(input, 0, input.length);
 
         try {
-            inflater.inflate(data);
+            int inflated = inflater.inflate(data);
+            if (inflated < data.length) {
+                data = Arrays.copyOf(data, inflated);
+            }
         } catch (DataFormatException e) {
             e.printStackTrace();
         } finally {

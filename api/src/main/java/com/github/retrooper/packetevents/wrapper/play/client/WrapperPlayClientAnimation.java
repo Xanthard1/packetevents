@@ -55,6 +55,10 @@ public class WrapperPlayClientAnimation extends PacketWrapper<WrapperPlayClientA
             this.interactionHand = InteractionHand.getById(readVarInt());
         } else {
             this.interactionHand = InteractionHand.MAIN_HAND;
+            if (serverVersion.isOlderThan(ServerVersion.V_1_8)) {
+                readInt();
+                readByte();
+            }
         }
     }
 
@@ -67,6 +71,9 @@ public class WrapperPlayClientAnimation extends PacketWrapper<WrapperPlayClientA
     public void write() {
         if (serverVersion.isNewerThanOrEquals(ServerVersion.V_1_9)) {
             writeVarInt(interactionHand.getId());
+        } else if (serverVersion.isOlderThan(ServerVersion.V_1_8)) {
+            writeInt(user != null ? user.getEntityId() : 0);
+            writeByte(1);
         }
     }
 

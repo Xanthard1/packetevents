@@ -29,6 +29,7 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerDi
 import io.github.retrooper.packetevents.injector.connection.ServerConnectionInitializer;
 import io.github.retrooper.packetevents.util.SpigotReflectionUtil;
 import io.github.retrooper.packetevents.util.folia.FoliaScheduler;
+import io.github.retrooper.packetevents.platform.ServerRuntime;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToMessageDecoder;
@@ -55,7 +56,7 @@ public class PacketEventsDecoder extends MessageToMessageDecoder<ByteBuf> {
 
     public void read(ChannelHandlerContext ctx, ByteBuf input, List<Object> out) throws Exception {
         try {
-            PacketEventsImplHelper.handleServerBoundPacket(ctx.channel(), user, player, input, true);
+            PacketEventsImplHelper.handleServerBoundPacket(ctx.channel(), user, player, input, !ServerRuntime.usesClientWireFormat(user.getClientVersion()));
             out.add(ByteBufHelper.retain(input));
         } catch (Throwable e) {
             // We must be sure all the exceptions caused by our handlers are PacketProcessExceptions

@@ -41,7 +41,7 @@ public class WrapperPlayServerRemoveEntityEffect extends PacketWrapper<WrapperPl
 
     @Override
     public void read() {
-        this.entityId = readVarInt();
+        this.entityId = this.serverVersion.isNewerThanOrEquals(ServerVersion.V_1_8) ? readVarInt() : readInt();
         int effectId;
         if (serverVersion.isNewerThanOrEquals(ServerVersion.V_1_18_2)) {
             effectId = readVarInt();
@@ -53,7 +53,11 @@ public class WrapperPlayServerRemoveEntityEffect extends PacketWrapper<WrapperPl
 
     @Override
     public void write() {
-        writeVarInt(entityId);
+        if (serverVersion.isNewerThanOrEquals(ServerVersion.V_1_8)) {
+            writeVarInt(entityId);
+        } else {
+            writeInt(entityId);
+        }
         if (serverVersion.isNewerThanOrEquals(ServerVersion.V_1_18_2)) {
             writeVarInt(potionType.getId(serverVersion.toClientVersion()));
         } else {

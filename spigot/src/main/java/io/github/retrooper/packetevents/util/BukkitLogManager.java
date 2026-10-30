@@ -24,6 +24,7 @@ import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.ComponentLike;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.command.ConsoleCommandSender;
 import org.jetbrains.annotations.ApiStatus;
 import org.jspecify.annotations.NullMarked;
@@ -49,7 +50,10 @@ public final class BukkitLogManager extends LogManager {
     public void log(Level level, ComponentLike component, @Nullable Throwable error) {
         ComponentLike line = text().append(PREFIX).append(component);
         ConsoleCommandSender sender = Bukkit.getConsoleSender();
-        if (sender instanceof Audience) {
+        if (sender == null) {
+            // 1.7 creates the console sender after plugins have loaded
+            Bukkit.getLogger().log(level, ChatColor.stripColor(legacySection().serialize(line.asComponent())));
+        } else if (sender instanceof Audience) {
             sender.sendMessage(line);
         } else {
             // either spigot or old paper

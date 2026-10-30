@@ -31,6 +31,7 @@ import io.github.retrooper.packetevents.injector.connection.ServerConnectionInit
 import io.github.retrooper.packetevents.util.SpigotReflectionUtil;
 import io.github.retrooper.packetevents.util.folia.FoliaScheduler;
 import io.github.retrooper.packetevents.util.viaversion.CustomPipelineUtil;
+import io.github.retrooper.packetevents.platform.ServerRuntime;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler;
@@ -99,7 +100,7 @@ public class PacketEventsEncoder extends ChannelOutboundHandlerAdapter {
     }
 
     private @Nullable PacketSendEvent handleClientBoundPacket(Channel channel, User user, Object player, ByteBuf buffer, ChannelPromise promise) throws Exception {
-        PacketSendEvent packetSendEvent = PacketEventsImplHelper.handleClientBoundPacket(channel, user, player, buffer, true);
+        PacketSendEvent packetSendEvent = PacketEventsImplHelper.handleClientBoundPacket(channel, user, player, buffer, !ServerRuntime.usesClientWireFormat(user.getClientVersion()));
         if (packetSendEvent != null && packetSendEvent.hasTasksAfterSend()) {
             promise.addListener((p) -> {
                 for (Runnable task : packetSendEvent.getTasksAfterSend()) {

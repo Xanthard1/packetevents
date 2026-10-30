@@ -19,14 +19,16 @@
 package io.github.retrooper.packetevents.injector;
 
 import com.github.retrooper.packetevents.PacketEvents;
-import com.github.retrooper.packetevents.injector.ChannelInjector;
 import com.github.retrooper.packetevents.protocol.ConnectionState;
+import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import com.github.retrooper.packetevents.protocol.player.User;
 import com.github.retrooper.packetevents.util.reflection.ReflectionObject;
 import io.github.retrooper.packetevents.injector.connection.ServerChannelHandler;
 import io.github.retrooper.packetevents.injector.connection.ServerConnectionInitializer;
 import io.github.retrooper.packetevents.injector.handlers.PacketEventsDecoder;
 import io.github.retrooper.packetevents.injector.handlers.PacketEventsEncoder;
+import io.github.retrooper.packetevents.platform.ServerRuntime;
+import io.github.retrooper.packetevents.platform.SpigotInjector;
 import io.github.retrooper.packetevents.util.InjectedList;
 import io.github.retrooper.packetevents.util.SpigotReflectionUtil;
 import io.netty.channel.Channel;
@@ -42,7 +44,7 @@ import java.util.List;
 import java.util.Set;
 
 @ApiStatus.Internal
-public class SpigotChannelInjector implements ChannelInjector {
+public class SpigotChannelInjector implements SpigotInjector {
     //Channels that process connecting clients.
     public final Set<Channel> injectedConnectionChannels = new HashSet<>();
     public List<Object> networkManagers;
@@ -245,5 +247,10 @@ public class SpigotChannelInjector implements ChannelInjector {
     @Override
     public boolean isProxy() {
         return false;
+    }
+
+    @Override
+    public boolean usesClientWireFormat(ClientVersion clientVersion) {
+        return ServerRuntime.usesClientWireFormat(clientVersion);
     }
 }

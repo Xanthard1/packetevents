@@ -11,7 +11,7 @@ import com.github.retrooper.packetevents.protocol.player.User;
 import com.github.retrooper.packetevents.util.LogManager;
 import com.github.retrooper.packetevents.wrapper.handshaking.client.WrapperHandshakingClientHandshake;
 import com.github.retrooper.packetevents.wrapper.login.server.WrapperLoginServerLoginSuccess;
-import io.github.retrooper.packetevents.injector.SpigotChannelInjector;
+import io.github.retrooper.packetevents.platform.SpigotInjector;
 import io.github.retrooper.packetevents.manager.player.PlayerManagerImpl;
 import io.github.retrooper.packetevents.util.protocolsupport.ProtocolSupportUtil;
 import io.github.retrooper.packetevents.util.viaversion.ViaVersionUtil;
@@ -48,7 +48,7 @@ public class InternalBukkitPacketListener extends com.github.retrooper.packeteve
         // we don't care whether this player is null or not; if it is null,
         // our bukkit listener may have already handled everything or will be handling it
         if (player != null) {
-            ((SpigotChannelInjector) api.getInjector()).updatePlayer(user, player);
+            ((SpigotInjector) api.getInjector()).updatePlayer(user, player);
             if (api.getLogManager().isDebug()) {
                 api.getLogManager().debug("Updated player reference on packet handling for " + player.getUniqueId());
             }

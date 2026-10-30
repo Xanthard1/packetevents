@@ -327,7 +327,7 @@ public class User implements IRegistryHolder {
 
     public ClientVersion getPacketVersion() {
         PacketEventsAPI<?> api = PacketEvents.getAPI();
-        if (api.getInjector().isProxy()) {
+        if (api.getInjector().usesClientWireFormat(this.getClientVersion())) {
             return this.getClientVersion();
         }
         return api.getServerManager().getVersion().toClientVersion();

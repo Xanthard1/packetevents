@@ -20,12 +20,13 @@ package io.github.retrooper.packetevents.manager.protocol;
 
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.manager.protocol.ProtocolManager;
+import com.github.retrooper.packetevents.netty.buffer.ByteBufHelper;
 import com.github.retrooper.packetevents.netty.channel.ChannelHelper;
 import com.github.retrooper.packetevents.protocol.ProtocolVersion;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import com.github.retrooper.packetevents.protocol.player.User;
 import io.github.retrooper.packetevents.util.protocolsupport.ProtocolSupportUtil;
-import io.netty.buffer.ByteBuf;
+import io.github.retrooper.packetevents.util.SpigotReflectionUtil;
 
 import java.util.List;
 
@@ -50,12 +51,12 @@ public class ProtocolManagerImpl implements ProtocolManager {
         if (ChannelHelper.isOpen(channel)) {
             //When ProtocolSupport is available, and we send a message through their logic handler,
             //we must retain the message.
-            if (ProtocolSupportUtil.isAvailable() && byteBuf instanceof ByteBuf) {
-                ((ByteBuf) byteBuf).retain();
+            if (ProtocolSupportUtil.isAvailable() && SpigotReflectionUtil.BYTE_BUF_CLASS.isInstance(byteBuf)) {
+                ByteBufHelper.retain(byteBuf);
             }
             ChannelHelper.writeAndFlush(channel, byteBuf);
         } else {
-            ((ByteBuf) byteBuf).release();
+            ByteBufHelper.release(byteBuf);
         }
     }
 
@@ -66,7 +67,7 @@ public class ProtocolManagerImpl implements ProtocolManager {
             //Here we do not need to retain when ProtocolSupport is present
             ChannelHelper.writeAndFlushInContext(channel, PacketEvents.ENCODER_NAME, byteBuf);
         } else {
-            ((ByteBuf) byteBuf).release();
+            ByteBufHelper.release(byteBuf);
         }
     }
 
@@ -76,12 +77,12 @@ public class ProtocolManagerImpl implements ProtocolManager {
             //Write to all encoders.
             //When ProtocolSupport is available, and we send a message through their logic handler,
             //we must retain the message.
-            if (ProtocolSupportUtil.isAvailable() && byteBuf instanceof ByteBuf) {
-                ((ByteBuf) byteBuf).retain();
+            if (ProtocolSupportUtil.isAvailable() && SpigotReflectionUtil.BYTE_BUF_CLASS.isInstance(byteBuf)) {
+                ByteBufHelper.retain(byteBuf);
             }
             ChannelHelper.write(channel, byteBuf);
         } else {
-            ((ByteBuf) byteBuf).release();
+            ByteBufHelper.release(byteBuf);
         }
     }
 
@@ -92,7 +93,7 @@ public class ProtocolManagerImpl implements ProtocolManager {
             //Here we do not need to retain when ProtocolSupport is present
             ChannelHelper.writeInContext(channel, PacketEvents.ENCODER_NAME, byteBuf);
         } else {
-            ((ByteBuf) byteBuf).release();
+            ByteBufHelper.release(byteBuf);
         }
     }
 
@@ -125,7 +126,7 @@ public class ProtocolManagerImpl implements ProtocolManager {
                 }
             }
         } else {
-            ((ByteBuf) byteBuf).release();
+            ByteBufHelper.release(byteBuf);
         }
     }
 
@@ -134,7 +135,7 @@ public class ProtocolManagerImpl implements ProtocolManager {
         if (ChannelHelper.isOpen(channel)) {
             ChannelHelper.fireChannelReadInContext(channel, PacketEvents.DECODER_NAME, byteBuf);
         } else {
-            ((ByteBuf) byteBuf).release();
+            ByteBufHelper.release(byteBuf);
         }
     }
 

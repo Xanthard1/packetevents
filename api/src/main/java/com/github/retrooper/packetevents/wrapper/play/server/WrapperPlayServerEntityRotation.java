@@ -49,13 +49,13 @@ public class WrapperPlayServerEntityRotation extends PacketWrapper<WrapperPlaySe
 
     @Override
     public void read() {
-        entityID = readVarInt();
+        entityID = serverVersion.isNewerThanOrEquals(ServerVersion.V_1_8) ? readVarInt() : readInt();
         if (this.serverVersion.isNewerThanOrEquals(ServerVersion.V_26_3)) {
             this.onGround = this.readBoolean();
         }
         yaw = readByte() / ROTATION_FACTOR;
         pitch = readByte() / ROTATION_FACTOR;
-        if (this.serverVersion.isOlderThan(ServerVersion.V_26_3)) {
+        if (this.serverVersion.isOlderThan(ServerVersion.V_26_3) && this.serverVersion.isNewerThanOrEquals(ServerVersion.V_1_8)) {
             this.onGround = this.readBoolean();
         }
     }
@@ -70,13 +70,17 @@ public class WrapperPlayServerEntityRotation extends PacketWrapper<WrapperPlaySe
 
     @Override
     public void write() {
-        writeVarInt(entityID);
+        if (serverVersion.isNewerThanOrEquals(ServerVersion.V_1_8)) {
+            writeVarInt(entityID);
+        } else {
+            writeInt(entityID);
+        }
         if (this.serverVersion.isNewerThanOrEquals(ServerVersion.V_26_3)) {
             this.writeBoolean(this.onGround);
         }
         writeByte((int) (yaw * ROTATION_FACTOR));
         writeByte((int) (pitch * ROTATION_FACTOR));
-        if (this.serverVersion.isOlderThan(ServerVersion.V_26_3)) {
+        if (this.serverVersion.isOlderThan(ServerVersion.V_26_3) && this.serverVersion.isNewerThanOrEquals(ServerVersion.V_1_8)) {
             this.writeBoolean(this.onGround);
         }
     }

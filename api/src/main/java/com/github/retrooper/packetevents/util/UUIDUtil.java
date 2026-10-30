@@ -33,6 +33,10 @@ public class UUIDUtil {
         return UUID.fromString(uuid);
     }
 
+    public static UUID fromStringAnyFormat(String uuid) {
+        return uuid.indexOf('-') == -1 ? fromStringWithoutDashes(uuid) : UUID.fromString(uuid);
+    }
+
     public static String toString(UUID uuid) {
         return uuid.toString();
     }

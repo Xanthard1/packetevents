@@ -38,7 +38,7 @@ public class WrapperPlayServerEntityEffect extends PacketWrapper<WrapperPlayServ
 
     @Override
     public void read() {
-        this.entityID = readVarInt();
+        this.entityID = serverVersion.isNewerThanOrEquals(ServerVersion.V_1_8) ? readVarInt() : readInt();
         int effectId;
         if (serverVersion.isNewerThanOrEquals(ServerVersion.V_1_18_2)) {
             effectId = readVarInt();
@@ -48,7 +48,7 @@ public class WrapperPlayServerEntityEffect extends PacketWrapper<WrapperPlayServ
         this.potionType = PotionTypes.getById(effectId, this.serverVersion);
         this.effectAmplifier = this.serverVersion.isNewerThanOrEquals(ServerVersion.V_1_20_5)
                 ? this.readVarInt() : this.readByte();
-        this.effectDurationTicks = readVarInt();
+        this.effectDurationTicks = serverVersion.isNewerThanOrEquals(ServerVersion.V_1_8) ? readVarInt() : readShort();
         if (serverVersion.isNewerThan(ServerVersion.V_1_7_10)) {
             this.flags = readByte();
         }
@@ -60,7 +60,11 @@ public class WrapperPlayServerEntityEffect extends PacketWrapper<WrapperPlayServ
 
     @Override
     public void write() {
-        writeVarInt(entityID);
+        if (serverVersion.isNewerThanOrEquals(ServerVersion.V_1_8)) {
+            writeVarInt(entityID);
+        } else {
+            writeInt(entityID);
+        }
         if (serverVersion.isNewerThanOrEquals(ServerVersion.V_1_18_2)) {
             writeVarInt(potionType.getId(serverVersion.toClientVersion()));
         } else {
@@ -71,7 +75,11 @@ public class WrapperPlayServerEntityEffect extends PacketWrapper<WrapperPlayServ
         } else {
             this.writeByte(this.effectAmplifier);
         }
-        writeVarInt(effectDurationTicks);
+        if (serverVersion.isNewerThanOrEquals(ServerVersion.V_1_8)) {
+            writeVarInt(effectDurationTicks);
+        } else {
+            writeShort(Math.min(effectDurationTicks, Short.MAX_VALUE));
+        }
         if (serverVersion.isNewerThan(ServerVersion.V_1_7_10)) {
             writeByte(flags);
         }

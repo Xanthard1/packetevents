@@ -1,0 +1,4 @@
+name: LegacyProbe
+version: '1'
+main: io.github.retrooper.packetevents.probe.LegacyProbePlugin
+depend: [packetevents]

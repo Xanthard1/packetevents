@@ -34,7 +34,12 @@ public class ServerChannelHandler extends ChannelInboundHandlerAdapter {
     public static PEVersion NETTY_VERSION;
 
     private static PEVersion resolveNettyVersion() {
-        Map<String, Version> nettyArtifacts = Version.identify();
+        Map<String, Version> nettyArtifacts;
+        try {
+            nettyArtifacts = Version.identify();
+        } catch (LinkageError absentBeforeNetty41) {
+            return null;
+        }
 
         Version version = nettyArtifacts.getOrDefault("netty-common", nettyArtifacts.get("netty-all"));
 

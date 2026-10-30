@@ -19,6 +19,7 @@
 package com.github.retrooper.packetevents.wrapper.play.server;
 
 import com.github.retrooper.packetevents.event.PacketSendEvent;
+import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.wrapper.PacketWrapper;
 
@@ -36,12 +37,16 @@ public class WrapperPlayServerEntityMovement extends PacketWrapper<WrapperPlaySe
 
     @Override
     public void read() {
-        this.entityId = readVarInt();
+        this.entityId = this.serverVersion.isNewerThanOrEquals(ServerVersion.V_1_8) ? readVarInt() : readInt();
     }
 
     @Override
     public void write() {
-        writeVarInt(this.entityId);
+        if (serverVersion.isNewerThanOrEquals(ServerVersion.V_1_8)) {
+            writeVarInt(this.entityId);
+        } else {
+            writeInt(this.entityId);
+        }
     }
 
     @Override

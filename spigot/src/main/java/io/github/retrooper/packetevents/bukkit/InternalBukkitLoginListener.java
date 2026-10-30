@@ -22,7 +22,7 @@ import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.PacketEventsAPI;
 import com.github.retrooper.packetevents.protocol.player.User;
 import com.github.retrooper.packetevents.util.FakeChannelUtil;
-import io.github.retrooper.packetevents.injector.SpigotChannelInjector;
+import io.github.retrooper.packetevents.platform.SpigotInjector;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -45,7 +45,7 @@ public class InternalBukkitLoginListener implements Listener {
         User user = api.getPlayerManager().getUser(event.getPlayer());
         if (user != null) {
             // if the user can be resolved from this player, save in encoder/decoder
-            SpigotChannelInjector injector = (SpigotChannelInjector) api.getInjector();
+            SpigotInjector injector = (SpigotInjector) api.getInjector();
             injector.updatePlayer(user, event.getPlayer());
             return; // we're done
         }

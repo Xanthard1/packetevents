@@ -37,13 +37,12 @@ import io.github.retrooper.packetevents.bukkit.InternalBukkitLoginListener;
 import io.github.retrooper.packetevents.bukkit.InternalGlobalBukkitListener;
 import io.github.retrooper.packetevents.bukkit.InternalPaperJoinListener;
 import io.github.retrooper.packetevents.bukkit.InternalPaperListener;
-import io.github.retrooper.packetevents.injector.SpigotChannelInjector;
-import io.github.retrooper.packetevents.injector.connection.ServerConnectionInitializer;
 import io.github.retrooper.packetevents.manager.InternalBukkitPacketListener;
 import io.github.retrooper.packetevents.manager.player.PlayerManagerImpl;
 import io.github.retrooper.packetevents.manager.protocol.ProtocolManagerImpl;
 import io.github.retrooper.packetevents.manager.server.ServerManagerImpl;
-import io.github.retrooper.packetevents.netty.NettyManagerImpl;
+import io.github.retrooper.packetevents.platform.ServerRuntime;
+import io.github.retrooper.packetevents.platform.SpigotInjector;
 import io.github.retrooper.packetevents.util.BukkitLogManager;
 import io.github.retrooper.packetevents.util.SpigotReflectionUtil;
 import io.github.retrooper.packetevents.util.folia.FoliaScheduler;
@@ -91,8 +90,8 @@ public class SpigotPacketEventsBuilder {
             private final ProtocolManager protocolManager = new ProtocolManagerImpl();
             private final ServerManager serverManager = new ServerManagerImpl();
             private final PlayerManager playerManager = new PlayerManagerImpl();
-            private final NettyManager nettyManager = new NettyManagerImpl();
-            private final SpigotChannelInjector injector = new SpigotChannelInjector();
+            private final NettyManager nettyManager = ServerRuntime.createNettyManager();
+            private final SpigotInjector injector = ServerRuntime.createInjector();
             private final LogManager logManager = new BukkitLogManager(this);
             private boolean loaded;
             private boolean initialized;
@@ -253,9 +252,9 @@ public class SpigotPacketEventsBuilder {
                     }
 
                     //Map player instances to the already registered channels (likely a reload)
-                    for (Player player : Bukkit.getOnlinePlayers()) {
+                    for (Player player : ServerRuntime.onlinePlayers()) {
                         User user = PacketEvents.getAPI().getPlayerManager().getUser(player);
-                        SpigotChannelInjector injector = (SpigotChannelInjector) PacketEvents.getAPI().getInjector();
+                        SpigotInjector injector = (SpigotInjector) PacketEvents.getAPI().getInjector();
                         injector.updatePlayer(user, player);
                     }
 
@@ -307,7 +306,7 @@ public class SpigotPacketEventsBuilder {
                 if (initialized) {
                     super.terminate();
                     for (User user : this.protocolManager.getUsers()) {
-                        ServerConnectionInitializer.destroyHandlers(user.getChannel());
+                        ServerRuntime.destroyHandlers(user.getChannel());
                     }
                     initialized = false;
                     terminated = true;

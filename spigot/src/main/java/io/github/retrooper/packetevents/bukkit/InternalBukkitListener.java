@@ -23,7 +23,7 @@ import com.github.retrooper.packetevents.PacketEventsAPI;
 import com.github.retrooper.packetevents.netty.channel.ChannelHelper;
 import com.github.retrooper.packetevents.protocol.player.User;
 import com.github.retrooper.packetevents.util.FakeChannelUtil;
-import io.github.retrooper.packetevents.injector.SpigotChannelInjector;
+import io.github.retrooper.packetevents.platform.SpigotInjector;
 import io.github.retrooper.packetevents.manager.player.PlayerManagerImpl;
 import io.github.retrooper.packetevents.util.folia.FoliaScheduler;
 import org.bukkit.entity.Player;
@@ -81,7 +81,7 @@ public class InternalBukkitListener implements Listener {
         User user = api.getPlayerManager().getUser(player);
         if (user != null) {
             // update player reference in encoder/decoder (doesn't matter if this was already done)
-            SpigotChannelInjector injector = (SpigotChannelInjector) PacketEvents.getAPI().getInjector();
+            SpigotInjector injector = (SpigotInjector) PacketEvents.getAPI().getInjector();
             injector.setPlayer(user.getChannel(), player);
             // remove from map; this is probably already removed anyway, but just make sure
             ((PlayerManagerImpl) api.getPlayerManager()).joiningPlayers.remove(player.getUniqueId());

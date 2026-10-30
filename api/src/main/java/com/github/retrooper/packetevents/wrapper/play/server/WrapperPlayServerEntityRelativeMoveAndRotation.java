@@ -93,7 +93,7 @@ public class WrapperPlayServerEntityRelativeMoveAndRotation extends PacketWrappe
 
     @Override
     public void read() {
-        entityID = readVarInt();
+        entityID = serverVersion.isNewerThanOrEquals(ServerVersion.V_1_8) ? readVarInt() : readInt();
         if (this.serverVersion.isNewerThanOrEquals(ServerVersion.V_26_3)) {
             int properties = this.readVarInt();
             this.delta = VecDelta.read(this, properties >>> 1);
@@ -116,14 +116,18 @@ public class WrapperPlayServerEntityRelativeMoveAndRotation extends PacketWrappe
         }
         yaw = readByte() / ROTATION_FACTOR;
         pitch = readByte() / ROTATION_FACTOR;
-        if (this.serverVersion.isOlderThan(ServerVersion.V_26_3)) {
+        if (this.serverVersion.isOlderThan(ServerVersion.V_26_3) && this.serverVersion.isNewerThanOrEquals(ServerVersion.V_1_8)) {
             this.onGround = this.readBoolean();
         }
     }
 
     @Override
     public void write() {
-        writeVarInt(entityID);
+        if (serverVersion.isNewerThanOrEquals(ServerVersion.V_1_8)) {
+            writeVarInt(entityID);
+        } else {
+            writeInt(entityID);
+        }
         if (this.serverVersion.isNewerThanOrEquals(ServerVersion.V_26_3)) {
             VecDelta delta = this.getDelta();
             this.writeVarInt((delta.getStepCount() << 1) | (this.onGround ? 1 : 0)); // properties
@@ -141,7 +145,7 @@ public class WrapperPlayServerEntityRelativeMoveAndRotation extends PacketWrappe
         }
         writeByte((int) (yaw * ROTATION_FACTOR));
         writeByte((int) (pitch * ROTATION_FACTOR));
-        if (this.serverVersion.isOlderThan(ServerVersion.V_26_3)) {
+        if (this.serverVersion.isOlderThan(ServerVersion.V_26_3) && this.serverVersion.isNewerThanOrEquals(ServerVersion.V_1_8)) {
             writeBoolean(onGround);
         }
     }

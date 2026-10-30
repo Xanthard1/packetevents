@@ -49,14 +49,14 @@ public class ChunkReader_v1_7 implements ChunkReader {
         // 2 = Get metadata.
         // 3 = Get block light.
         // 4 = Get sky light.
-        // 5 = Get extended block data - This doesn't exist!
+        // 5 = Get extended block data, only sent for sections in the secondary mask (modded block ids).
         //
         // Fun fact, a mojang dev (forgot who) wanted to do the flattening in 1.8
         // So the extended block data was likely how mojang wanted to get around the 255 block id limit
         // Before they decided to quite using magic values and instead went with the new 1.13 solution
         //
         // That's probably why extended block data exists, although yeah it was never used.
-        for (int pass = 0; pass < 5; pass++) {
+        for (int pass = 0; pass < 6; pass++) {
             for (int ind = 0; ind < 16; ind++) {
                 if (chunkMask.get(ind)) {
                     if (pass == 0) {
@@ -89,6 +89,12 @@ public class ChunkReader_v1_7 implements ChunkReader {
                         NibbleArray3d skylight = chunks[ind].getSkyLight();
                         System.arraycopy(data, pos, skylight.getData(), 0, skylight.getData().length);
                         pos += skylight.getData().length;
+                    }
+
+                    if (pass == 5 && secondaryChunkMask.get(ind)) {
+                        NibbleArray3d extended = chunks[ind].getExtendedBlocks();
+                        System.arraycopy(data, pos, extended.getData(), 0, extended.getData().length);
+                        pos += extended.getData().length;
                     }
                 }
             }

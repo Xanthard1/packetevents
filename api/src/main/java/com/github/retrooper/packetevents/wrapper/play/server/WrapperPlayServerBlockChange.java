@@ -49,7 +49,7 @@ public class WrapperPlayServerBlockChange extends PacketWrapper<WrapperPlayServe
             blockPosition = new Vector3i(readInt(), readUnsignedByte(), readInt());
             int block = readVarInt();
             int blockData = readUnsignedByte();
-            blockID = block | (blockData << 12);
+            blockID = block << 4 | blockData;
         } else {
             blockPosition = readBlockPosition();
             blockID = readVarInt();
@@ -62,8 +62,8 @@ public class WrapperPlayServerBlockChange extends PacketWrapper<WrapperPlayServe
             writeInt(blockPosition.getX());
             writeByte(blockPosition.getY());
             writeInt(blockPosition.getZ());
-            writeVarInt(blockID & 0xff);
-            writeByte(blockID >> 12);
+            writeVarInt(blockID >> 4);
+            writeByte(blockID & 0xF);
         } else {
             writeBlockPosition(blockPosition);
             writeVarInt(blockID);

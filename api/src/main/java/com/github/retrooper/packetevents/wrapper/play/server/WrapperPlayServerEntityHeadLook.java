@@ -19,6 +19,7 @@
 package com.github.retrooper.packetevents.wrapper.play.server;
 
 import com.github.retrooper.packetevents.event.PacketSendEvent;
+import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.wrapper.PacketWrapper;
 
@@ -39,13 +40,17 @@ public class WrapperPlayServerEntityHeadLook extends PacketWrapper<WrapperPlaySe
 
     @Override
     public void read() {
-        entityID = readVarInt();
+        entityID = serverVersion.isNewerThanOrEquals(ServerVersion.V_1_8) ? readVarInt() : readInt();
         headYaw = readByte() / ROTATION_FACTOR;
     }
 
     @Override
     public void write() {
-        writeVarInt(entityID);
+        if (serverVersion.isNewerThanOrEquals(ServerVersion.V_1_8)) {
+            writeVarInt(entityID);
+        } else {
+            writeInt(entityID);
+        }
         writeByte((int) (headYaw * ROTATION_FACTOR));
     }
 

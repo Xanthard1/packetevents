@@ -43,6 +43,7 @@
 package com.github.retrooper.packetevents.wrapper;
 
 import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.PacketEventsAPI;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
@@ -264,7 +265,14 @@ public class PacketWrapper<T extends PacketWrapper<T>> {
 
     @ApiStatus.Internal
     public final void prepareForSend(Object channel, boolean outgoing) {
-        prepareForSend(channel, outgoing, PacketEvents.getAPI().getInjector().isProxy());
+        PacketEventsAPI<?> api = PacketEvents.getAPI();
+        boolean clientWire = api.getInjector().isProxy();
+        // a 1.7.10 protocol-patch server speaks 1.8 on its 1.8 connections
+        if (!clientWire && api.getServerManager().getVersion().isOlderThan(ServerVersion.V_1_8)) {
+            User user = api.getProtocolManager().getUser(channel);
+            clientWire = user != null && api.getInjector().usesClientWireFormat(user.getClientVersion());
+        }
+        prepareForSend(channel, outgoing, clientWire);
     }
 
     public void read() {

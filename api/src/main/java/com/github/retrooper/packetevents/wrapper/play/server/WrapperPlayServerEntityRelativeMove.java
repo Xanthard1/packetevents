@@ -85,7 +85,7 @@ public class WrapperPlayServerEntityRelativeMove extends PacketWrapper<WrapperPl
 
     @Override
     public void read() {
-        this.entityID = this.readVarInt();
+        this.entityID = this.serverVersion.isNewerThanOrEquals(ServerVersion.V_1_8) ? this.readVarInt() : this.readInt();
         if (this.serverVersion.isNewerThanOrEquals(ServerVersion.V_26_3)) {
             int properties = this.readVarInt();
             this.delta = VecDelta.read(this, properties >>> 1);
@@ -105,13 +105,19 @@ public class WrapperPlayServerEntityRelativeMove extends PacketWrapper<WrapperPl
                 this.deltaY = this.readByte() / LEGACY_DELTA_DIVISOR;
                 this.deltaZ = this.readByte() / LEGACY_DELTA_DIVISOR;
             }
-            this.onGround = this.readBoolean();
+            if (this.serverVersion.isNewerThanOrEquals(ServerVersion.V_1_8)) {
+                this.onGround = this.readBoolean();
+            }
         }
     }
 
     @Override
     public void write() {
-        this.writeVarInt(this.entityID);
+        if (this.serverVersion.isNewerThanOrEquals(ServerVersion.V_1_8)) {
+            this.writeVarInt(this.entityID);
+        } else {
+            this.writeInt(this.entityID);
+        }
         if (this.serverVersion.isNewerThanOrEquals(ServerVersion.V_26_3)) {
             VecDelta delta = this.getDelta();
             this.writeVarInt((delta.getStepCount() << 1) | (this.onGround ? 1 : 0)); // properties
@@ -126,7 +132,9 @@ public class WrapperPlayServerEntityRelativeMove extends PacketWrapper<WrapperPl
                 this.writeByte((byte) (this.deltaY * LEGACY_DELTA_DIVISOR));
                 this.writeByte((byte) (this.deltaZ * LEGACY_DELTA_DIVISOR));
             }
-            this.writeBoolean(this.onGround);
+            if (this.serverVersion.isNewerThanOrEquals(ServerVersion.V_1_8)) {
+                this.writeBoolean(this.onGround);
+            }
         }
     }
 

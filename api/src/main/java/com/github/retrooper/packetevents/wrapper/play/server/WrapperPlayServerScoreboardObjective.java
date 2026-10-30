@@ -58,6 +58,13 @@ public class WrapperPlayServerScoreboardObjective extends PacketWrapper<WrapperP
 
     @Override
     public void read() {
+        if (serverVersion.isOlderThan(ServerVersion.V_1_8)) {
+            name = readString(16);
+            displayName = this.getSerializers().fromLegacy(this.readString(32));
+            mode = ObjectiveMode.getById(readByte());
+            renderType = RenderType.INTEGER;
+            return;
+        }
         if (serverVersion.isNewerThanOrEquals(ServerVersion.V_1_18)) {
             name = readString();
         } else {
@@ -86,6 +93,13 @@ public class WrapperPlayServerScoreboardObjective extends PacketWrapper<WrapperP
 
     @Override
     public void write() {
+        if (serverVersion.isOlderThan(ServerVersion.V_1_8)) {
+            writeString(name, 16);
+            String legacyText = this.displayName == null ? "" : this.getSerializers().asLegacy(this.displayName);
+            writeString(LegacyFormat.trimLegacyFormat(legacyText, 32));
+            writeByte((byte) mode.ordinal());
+            return;
+        }
         if (serverVersion.isNewerThanOrEquals(ServerVersion.V_1_18)) {
             writeString(name);
         } else {

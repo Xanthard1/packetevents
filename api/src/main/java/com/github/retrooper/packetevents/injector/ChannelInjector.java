@@ -19,6 +19,7 @@
 package com.github.retrooper.packetevents.injector;
 
 import com.github.retrooper.packetevents.protocol.PacketSide;
+import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import com.github.retrooper.packetevents.protocol.player.User;
 
 public interface ChannelInjector {
@@ -38,6 +39,10 @@ public interface ChannelInjector {
     boolean isPlayerSet(Object channel);
 
     boolean isProxy();
+
+    default boolean usesClientWireFormat(ClientVersion clientVersion) {
+        return isProxy();
+    }
 
     default PacketSide getPacketSide() {
         return PacketSide.SERVER;

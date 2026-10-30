@@ -46,7 +46,7 @@ public class Chunk_v1_7 implements BaseChunk {
         int blockId = (blocks.get(x, y, z) & 0xFF) << 4;
         blockId |= metadata.get(x, y, z) & 0xF;
         if (extendedBlocks != null) {
-            blockId |= (extendedBlocks.get(x, y, z) & 0xF) << 8;
+            blockId |= (extendedBlocks.get(x, y, z) & 0xF) << 12;
         }
         return blockId;
     }
@@ -56,7 +56,7 @@ public class Chunk_v1_7 implements BaseChunk {
         blocks.set(x, y, z, (combinedID >> 4) & 0xFF);
         metadata.set(x, y, z, combinedID & 0xF);
         if (extendedBlocks != null) {
-            extendedBlocks.set(x, y, z, (combinedID >> 8) & 0xF);
+            extendedBlocks.set(x, y, z, (combinedID >> 12) & 0xF);
         }
     }
 

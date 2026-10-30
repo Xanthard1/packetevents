@@ -14,6 +14,7 @@ import org.jetbrains.annotations.ApiStatus;
  * issues on most server implementations and is discouraged!
  */
 public class WrapperPlayServerPlayerPositionAndLook extends PacketWrapper<WrapperPlayServerPlayerPositionAndLook> {
+    private static final double LEGACY_EYE_HEIGHT = 1.6200000047683716;
 
     private int teleportId;
     /**
@@ -90,6 +91,13 @@ public class WrapperPlayServerPlayerPositionAndLook extends PacketWrapper<Wrappe
             Vector3d position = Vector3d.read(this);
             float yaw = this.readFloat();
             float pitch = this.readFloat();
+            if (this.serverVersion.isOlderThan(ServerVersion.V_1_8)) {
+                // 1.7 teleports are absolute, carry eye height and end with on-ground instead of flags
+                this.values = new EntityPositionData(position.add(0, -LEGACY_EYE_HEIGHT, 0), Vector3d.zero(), yaw, pitch);
+                this.readBoolean();
+                this.relativeFlags = new RelativeFlag(0);
+                return;
+            }
             this.values = new EntityPositionData(position, Vector3d.zero(), yaw, pitch);
             this.relativeFlags = new RelativeFlag(this.readUnsignedByte());
             if (this.serverVersion.isNewerThanOrEquals(ServerVersion.V_1_9)) {
@@ -109,6 +117,13 @@ public class WrapperPlayServerPlayerPositionAndLook extends PacketWrapper<Wrappe
             EntityPositionData.write(this, this.values);
             this.writeInt(this.relativeFlags.getFullMask());
         } else {
+            if (this.serverVersion.isOlderThan(ServerVersion.V_1_8)) {
+                Vector3d.write(this, this.values.getPosition().add(0, LEGACY_EYE_HEIGHT, 0));
+                this.writeFloat(this.values.getYaw());
+                this.writeFloat(this.values.getPitch());
+                this.writeBoolean(false);
+                return;
+            }
             Vector3d.write(this, this.values.getPosition());
             this.writeFloat(this.values.getYaw());
             this.writeFloat(this.values.getPitch());
