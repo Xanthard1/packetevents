@@ -101,6 +101,7 @@ public class InternalBukkitListener implements Listener {
             return;
         }
 
+        reportMissingUser(player, channel);
         // delay by a tick
         FoliaScheduler.getEntityScheduler().runDelayed(player, this.plugin, __ -> {
             // only kick if the player is actually still connected
@@ -108,5 +109,17 @@ public class InternalBukkitListener implements Listener {
                 player.kickPlayer(KICK_MESSAGE);
             }
         }, null, 0);
+    }
+
+    // The one line that tells a missing injection (no packetevents handlers) from a missing lookup (handlers, no user).
+    static void reportMissingUser(Player player, Object channel) {
+        String pipeline;
+        try {
+            pipeline = channel == null ? "no channel found for the player" : ChannelHelper.pipelineHandlerNamesAsString(channel);
+        } catch (RuntimeException exception) {
+            pipeline = "unreadable (" + exception + ")";
+        }
+        PacketEvents.getAPI().getLogManager().warn("No packetevents user for " + player.getName()
+                + ": channel=" + (channel == null ? "null" : channel.getClass().getName()) + " pipeline=" + pipeline);
     }
 }

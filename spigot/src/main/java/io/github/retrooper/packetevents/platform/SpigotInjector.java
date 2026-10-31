@@ -24,4 +24,6 @@ import com.github.retrooper.packetevents.protocol.player.User;
 
 public interface SpigotInjector extends ChannelInjector {
     void updatePlayer(User user, Object player);
+
+    String describeServerConnection();
 }

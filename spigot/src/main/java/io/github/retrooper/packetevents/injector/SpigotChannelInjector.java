@@ -74,9 +74,15 @@ public class SpigotChannelInjector implements SpigotInjector {
         Object serverConnection = SpigotReflectionUtil.getMinecraftServerConnectionInstance();
         if (serverConnection != null) {
             ReflectionObject reflectServerConnection = new ReflectionObject(serverConnection);
-            //There should only be 2 lists.
-            for (int i = 0; i < 2; i++) {
-                List<?> list = reflectServerConnection.readList(i);
+            // Vanilla has two lists; forks add their own, so every List field is searched, not the first two.
+            for (int i = 0; ; i++) {
+                List<?> list;
+                try {
+                    list = reflectServerConnection.readList(i);
+                } catch (IllegalStateException noMoreLists) {
+                    break;
+                }
+                if (list == null) continue;
                 for (Object value : list) {
                     if (value instanceof ChannelFuture) {
                         connectionChannelsListIndex = i;
@@ -88,6 +94,32 @@ public class SpigotChannelInjector implements SpigotInjector {
             }
         }
         return false;
+    }
+
+    // What a failed search saw: on a fork whose listening channels we cannot find, this is the first thing to read.
+    @Override
+    public String describeServerConnection() {
+        Object serverConnection = SpigotReflectionUtil.getMinecraftServerConnectionInstance();
+        if (serverConnection == null) return "no ServerConnection";
+        StringBuilder out = new StringBuilder(serverConnection.getClass().getName()).append(" lists:");
+        ReflectionObject reflectServerConnection = new ReflectionObject(serverConnection);
+        for (int i = 0; ; i++) {
+            List<?> list;
+            try {
+                list = reflectServerConnection.readList(i);
+            } catch (IllegalStateException noMoreLists) {
+                break;
+            }
+            out.append(" #").append(i).append('=');
+            if (list == null) {
+                out.append("null");
+            } else {
+                out.append(list.getClass().getSimpleName()).append('[').append(list.size());
+                if (!list.isEmpty()) out.append(' ').append(list.get(0).getClass().getName());
+                out.append(']');
+            }
+        }
+        return out.toString();
     }
 
     @Override
@@ -107,6 +139,8 @@ public class SpigotChannelInjector implements SpigotInjector {
             });
             //Replace the list with our wrapped one.
             reflectServerConnection.writeList(connectionChannelsListIndex, wrappedList);
+            PacketEvents.getAPI().getLogManager().info("Listening for connections on " + injectedConnectionChannels.size()
+                    + " server channel(s) " + injectedConnectionChannels + " (ServerConnection list #" + connectionChannelsListIndex + ")");
 
             //Player channels might have been registered already. Let us add our handlers. We are a little late though.
             if (networkManagers == null) {

@@ -57,6 +57,7 @@ public class InternalBukkitLoginListener implements Listener {
         }
         // since 1.20.5 and cookie packets, CraftBukkit associates the login listener with the player
         // before calling the login event; if this fails on 1.20.5+, something broke a lot
+        InternalBukkitListener.reportMissingUser(event.getPlayer(), channel);
         event.disallow(PlayerLoginEvent.Result.KICK_OTHER, KICK_MESSAGE);
     }
 }

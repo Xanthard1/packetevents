@@ -170,7 +170,9 @@ public class SpigotPacketEventsBuilder {
                     AtomicBoolean stopping = new AtomicBoolean(false);
                     BiConsumer<PEVersion, UpdateChecker.UpdateCheckerStatus> unsupportedSoftwareLogic = (peVersion, status) -> {
                         if (minecraftVersion.contains("Unknown")) {
-                            ServerVersion fallbackVersion = ServerVersion.V_1_8_8;
+                            // The server manager already resolved the version another way; a 1.7 fork is expected to report Unknown.
+                            if (ServerRuntime.LEGACY_SERVER) return;
+                            ServerVersion fallbackVersion = getServerManager().getVersion();
                             String failureToDetectVersionMsg = "Your server software is preventing us from checking the Minecraft Server version. This is what we found: " + minecraftVersion + ". We will assume the Server version is " + fallbackVersion.name() + "... If you need assistance, join our Discord server: https://discord.gg/DVHxPPxHZc";
                             getLogManager().warn(failureToDetectVersionMsg);
                         } else {
@@ -243,6 +245,9 @@ public class SpigotPacketEventsBuilder {
                         Runnable lateBindTask = () -> {
                             if (injector.isServerBound()) {
                                 injector.inject();
+                            } else {
+                                getLogManager().warn("Found no listening server channel to inject into, so no player can join with packetevents: "
+                                        + injector.describeServerConnection());
                             }
                         };
                         FoliaScheduler.runTaskOnInit(plugin, lateBindTask);
