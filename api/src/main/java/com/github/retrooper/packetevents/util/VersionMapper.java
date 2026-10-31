@@ -28,6 +28,7 @@ public class VersionMapper {
 
     private final ClientVersion[] versions;
     private final ClientVersion[] reversedVersions;
+    private final int[] indexByVersion;
 
     public VersionMapper(ClientVersion... versions) {
         this.versions = versions.clone();
@@ -36,6 +37,12 @@ public class VersionMapper {
         this.reversedVersions = new ClientVersion[this.versions.length];
         for (int i = this.versions.length - 1, j = 0; i >= 0; i--, j++) {
             this.reversedVersions[j] = this.versions[i];
+        }
+
+        ClientVersion[] all = ClientVersion.values();
+        this.indexByVersion = new int[all.length];
+        for (ClientVersion version : all) {
+            this.indexByVersion[version.ordinal()] = resolveIndex(version);
         }
     }
 
@@ -56,7 +63,12 @@ public class VersionMapper {
         return reversedVersions;
     }
 
+    // Resolved once per version: the lookup runs for every packet on every connection.
     public int getIndex(ClientVersion version) {
+        return indexByVersion[version.ordinal()];
+    }
+
+    private int resolveIndex(ClientVersion version) {
         int index = reversedVersions.length - 1;
         for (ClientVersion v : reversedVersions) {
             if (version.isNewerThanOrEquals(v)) {

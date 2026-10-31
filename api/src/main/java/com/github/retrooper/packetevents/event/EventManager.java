@@ -20,6 +20,7 @@ package com.github.retrooper.packetevents.event;
 
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.exception.InvalidHandshakeException;
+import com.github.retrooper.packetevents.netty.buffer.ByteBufHelper;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -81,18 +82,35 @@ public class EventManager {
      */
     public void callEvent(PacketEvent event, @Nullable Runnable postCallListenerAction) {
         for (PacketListenerCommon listener : listeners) {
-            try {
-                event.call(listener);
-            } catch (Exception t) {
-                // ignore handshake exceptions
-                if (t.getClass() != InvalidHandshakeException.class && (t.getCause() == null || t.getCause().getClass() != InvalidHandshakeException.class)) {
-                    PacketEvents.getAPI().getLogManager().warn("PacketEvents caught an unhandled exception while calling your listener.", t);
-                }
-            }
+            callListener(event, listener);
             if (postCallListenerAction != null) {
                 postCallListenerAction.run();
             }
         }
+        clearUnusedWrapper(event);
+    }
+
+    // As callEvent with a reader-index reset after each listener, without a capturing lambda per packet.
+    public void callEvent(PacketEvent event, Object buffer, int readerIndex) {
+        for (PacketListenerCommon listener : listeners) {
+            callListener(event, listener);
+            ByteBufHelper.readerIndex(buffer, readerIndex);
+        }
+        clearUnusedWrapper(event);
+    }
+
+    private static void callListener(PacketEvent event, PacketListenerCommon listener) {
+        try {
+            event.call(listener);
+        } catch (Exception t) {
+            // ignore handshake exceptions
+            if (t.getClass() != InvalidHandshakeException.class && (t.getCause() == null || t.getCause().getClass() != InvalidHandshakeException.class)) {
+                PacketEvents.getAPI().getLogManager().warn("PacketEvents caught an unhandled exception while calling your listener.", t);
+            }
+        }
+    }
+
+    private static void clearUnusedWrapper(PacketEvent event) {
         // For performance reasons, we don't want to re-encode the packet if it's not needed.
         if (event instanceof ProtocolPacketEvent && !((ProtocolPacketEvent) event).needsReEncode()) {
             ((ProtocolPacketEvent) event).setLastUsedWrapper(null);
