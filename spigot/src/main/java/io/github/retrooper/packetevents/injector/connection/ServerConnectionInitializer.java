@@ -28,6 +28,7 @@ import com.github.retrooper.packetevents.util.FakeChannelUtil;
 import com.github.retrooper.packetevents.util.PacketEventsImplHelper;
 import io.github.retrooper.packetevents.injector.handlers.PacketEventsDecoder;
 import io.github.retrooper.packetevents.injector.handlers.PacketEventsEncoder;
+import io.github.retrooper.packetevents.platform.ServerRuntime;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandler;
@@ -37,7 +38,14 @@ import java.util.NoSuchElementException;
 
 public class ServerConnectionInitializer {
 
+    // 1.7 plugins such as ProtocolLib 3 wrap the server's own channel setup, so its handlers can arrive after ours.
+    private static final int LEGACY_SPLITTER_ATTEMPTS = 20;
+
     public static void initChannel(Object ch, ConnectionState connectionState) {
+        initChannel(ch, connectionState, 0);
+    }
+
+    private static void initChannel(Object ch, ConnectionState connectionState, int attempt) {
         Channel channel = (Channel) ch;
         if (FakeChannelUtil.isFakeChannel(channel)) {
             return;
@@ -59,6 +67,10 @@ public class ServerConnectionInitializer {
              * Taken the above into account, here we just drop all unhandled connections.
              */
             if (channel.pipeline().get("splitter") == null) {
+                if (ServerRuntime.LEGACY_SERVER && attempt < LEGACY_SPLITTER_ATTEMPTS && channel.isOpen()) {
+                    channel.eventLoop().execute(() -> initChannel(channel, connectionState, attempt + 1));
+                    return;
+                }
                 channel.close();
                 return;
             }

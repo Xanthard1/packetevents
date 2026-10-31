@@ -24,6 +24,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.ApiStatus;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collection;
@@ -32,11 +33,11 @@ import java.util.function.Supplier;
 
 @ApiStatus.Internal
 public final class ServerRuntime {
-    public static final boolean RELOCATED_LIBRARIES = !present("io.netty.channel.Channel")
-            && present("net.minecraft.util.io.netty.channel.Channel");
+    public static final boolean RELOCATED_LIBRARIES = serverUsesRelocatedNetty();
+    public static final boolean LEGACY_SERVER = RELOCATED_LIBRARIES || isOneSevenPackage();
 
     private static final String NETTY_PACKAGE = RELOCATED_LIBRARIES ? "net.minecraft.util.io.netty." : "io.netty.";
-    private static final String AUTHLIB_PACKAGE = RELOCATED_LIBRARIES ? "net.minecraft.util.com.mojang.authlib." : "com.mojang.authlib.";
+    private static final String AUTHLIB_PACKAGE = serverClassPresent("net.minecraft.util.com.mojang.authlib.GameProfile") ? "net.minecraft.util.com.mojang.authlib." : "com.mojang.authlib.";
     private static final String IMPLEMENTATION_PACKAGE = RELOCATED_LIBRARIES
             ? "io.github.retrooper.packetevents.legacy." : "io.github.retrooper.packetevents.";
 
@@ -66,15 +67,17 @@ public final class ServerRuntime {
     public static boolean isProtocolPatch() {
         Boolean patched = protocolPatch;
         if (patched == null) {
-            patched = RELOCATED_LIBRARIES && hasNetworkManagerVersion();
+            patched = LEGACY_SERVER && hasNetworkManagerVersion();
             protocolPatch = patched;
         }
         return patched;
     }
 
     private static boolean hasNetworkManagerVersion() {
-        String craftPackage = Bukkit.getServer().getClass().getPackage().getName();
-        String nmsVersion = craftPackage.substring(craftPackage.lastIndexOf('.') + 1);
+        String nmsVersion = nmsPackageVersion();
+        if (nmsVersion == null) {
+            return false;
+        }
         try {
             Method version = Class.forName("net.minecraft.server." + nmsVersion + ".NetworkManager").getMethod("getVersion");
             return version.getReturnType() == int.class;
@@ -139,6 +142,50 @@ public final class ServerRuntime {
         } catch (ReflectiveOperationException exception) {
             throw new IllegalStateException("Failed to create " + IMPLEMENTATION_PACKAGE + relativeName, exception);
         }
+    }
+
+    // Plugins can expose an unrelocated io.netty of their own on a 1.7 server, so the server's
+    // NetworkManager decides which netty is live, not whichever package happens to be loadable.
+    private static boolean serverUsesRelocatedNetty() {
+        String nmsVersion = nmsPackageVersion();
+        if (nmsVersion != null) {
+            try {
+                Class<?> networkManager = Class.forName("net.minecraft.server." + nmsVersion + ".NetworkManager",
+                        false, Bukkit.getServer().getClass().getClassLoader());
+                for (Field field : networkManager.getDeclaredFields()) {
+                    String typeName = field.getType().getName();
+                    if (typeName.endsWith(".netty.channel.Channel")) {
+                        return typeName.startsWith("net.minecraft.util.io.netty.");
+                    }
+                }
+            } catch (ClassNotFoundException | LinkageError ignored) {
+            }
+        }
+        return !present("io.netty.channel.Channel") && present("net.minecraft.util.io.netty.channel.Channel");
+    }
+
+    private static boolean isOneSevenPackage() {
+        String nmsVersion = nmsPackageVersion();
+        return nmsVersion != null && nmsVersion.startsWith("v1_7_");
+    }
+
+    private static boolean serverClassPresent(String className) {
+        ClassLoader loader = Bukkit.getServer() == null ? ServerRuntime.class.getClassLoader() : Bukkit.getServer().getClass().getClassLoader();
+        try {
+            Class.forName(className, false, loader);
+            return true;
+        } catch (ClassNotFoundException | LinkageError exception) {
+            return false;
+        }
+    }
+
+    public static String nmsPackageVersion() {
+        if (Bukkit.getServer() == null) {
+            return null;
+        }
+        String craftPackage = Bukkit.getServer().getClass().getPackage().getName();
+        String nmsVersion = craftPackage.substring(craftPackage.lastIndexOf('.') + 1);
+        return nmsVersion.startsWith("v") ? nmsVersion : null;
     }
 
     private static boolean present(String className) {

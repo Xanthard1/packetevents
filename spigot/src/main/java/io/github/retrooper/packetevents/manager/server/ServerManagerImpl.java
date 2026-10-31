@@ -34,11 +34,18 @@ public class ServerManagerImpl implements ServerManager {
     private ServerVersion resolveVersionNoCache() {
         LogManager logger = PacketEvents.getAPI().getLogManager();
         String bukkitVersion = Bukkit.getBukkitVersion();
-        ServerVersion fallbackVersion = ServerRuntime.RELOCATED_LIBRARIES ? ServerVersion.V_1_7_10 : ServerVersion.V_1_8_8;
+        ServerVersion fallbackVersion = ServerRuntime.LEGACY_SERVER ? legacyVersionFromPackage() : ServerVersion.V_1_8_8;
 
         String failureToDetectVersionMsg = "Your server software is preventing us from checking the Minecraft Server version. This is what we found: " + Bukkit.getBukkitVersion() + ". We will assume the Server version is " + fallbackVersion.name() + "...\n If you need assistance, join our Discord server: https://discord.gg/DVHxPPxHZc";
 
         if (bukkitVersion.contains("Unknown")) {
+            ServerVersion reported = versionFromMinecraftVersion(Bukkit.getVersion());
+            if (reported != null) {
+                return reported;
+            }
+            if (ServerRuntime.LEGACY_SERVER) {
+                return fallbackVersion;
+            }
             logger.warn(failureToDetectVersionMsg);
             return fallbackVersion;
         }
@@ -52,6 +59,35 @@ public class ServerManagerImpl implements ServerManager {
 
         logger.warn(failureToDetectVersionMsg);
         return fallbackVersion;
+    }
+
+    private static ServerVersion versionFromMinecraftVersion(String version) {
+        int start = version == null ? -1 : version.indexOf("MC: ");
+        if (start == -1) {
+            return null;
+        }
+        int end = version.indexOf(')', start);
+        String release = version.substring(start + 4, end == -1 ? version.length() : end).trim();
+        for (ServerVersion val : ServerVersion.reversedValues()) {
+            if (release.equals(val.getReleaseName())) {
+                return val;
+            }
+        }
+        return null;
+    }
+
+    private static ServerVersion legacyVersionFromPackage() {
+        String nmsVersion = ServerRuntime.nmsPackageVersion();
+        if ("v1_7_R1".equals(nmsVersion)) {
+            return ServerVersion.V_1_7_2;
+        }
+        if ("v1_7_R2".equals(nmsVersion)) {
+            return ServerVersion.V_1_7_5;
+        }
+        if ("v1_7_R3".equals(nmsVersion)) {
+            return ServerVersion.V_1_7_9;
+        }
+        return ServerVersion.V_1_7_10;
     }
 
     @Override

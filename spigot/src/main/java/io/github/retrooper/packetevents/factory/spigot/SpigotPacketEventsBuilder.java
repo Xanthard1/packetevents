@@ -282,7 +282,8 @@ public class SpigotPacketEventsBuilder {
                 }
                 //If ProtocolLib is present, it needs to be v5.0.0 or newer
                 Plugin protocolLibPlugin = Bukkit.getPluginManager().getPlugin("ProtocolLib");
-                if (protocolLibPlugin != null) {
+                // ProtocolLib 5 never ran on 1.7; its 3.x line is the only one there.
+                if (protocolLibPlugin != null && !ServerRuntime.LEGACY_SERVER) {
                     int majorVersion = Integer.parseInt(protocolLibPlugin.getDescription().getVersion().split("\\.", 2)[0]);
                     if (majorVersion < 5) {
                         PacketEvents.getAPI().getLogManager().severe("You are attempting to combine 2.0 PacketEvents with a " +
