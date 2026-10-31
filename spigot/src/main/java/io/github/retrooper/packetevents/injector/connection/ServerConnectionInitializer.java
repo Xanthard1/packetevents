@@ -68,8 +68,14 @@ public class ServerConnectionInitializer {
              */
             if (channel.pipeline().get("splitter") == null) {
                 if (ServerRuntime.LEGACY_SERVER && attempt < LEGACY_SPLITTER_ATTEMPTS && channel.isOpen()) {
+                    debug(channel, "no splitter yet, retry " + (attempt + 1));
                     channel.eventLoop().execute(() -> initChannel(channel, connectionState, attempt + 1));
                     return;
+                }
+                if (ServerRuntime.LEGACY_SERVER && channel.isOpen()) {
+                    warnThrottled(channel, "dropped: no splitter after " + attempt + " retries");
+                } else {
+                    debug(channel, "closed before the server set it up");
                 }
                 channel.close();
                 return;
@@ -78,6 +84,7 @@ public class ServerConnectionInitializer {
             UserConnectEvent connectEvent = new UserConnectEvent(user);
             PacketEvents.getAPI().getEventManager().callEvent(connectEvent);
             if (connectEvent.isCancelled()) {
+                debug(channel, "connect event cancelled by a listener");
                 channel.unsafe().closeForcibly();
                 return;
             }
@@ -86,7 +93,26 @@ public class ServerConnectionInitializer {
 
             channel.closeFuture().addListener((ChannelFutureListener) future -> PacketEventsImplHelper.handleDisconnection(user.getChannel(), user.getUUID()));
             PacketEvents.getAPI().getProtocolManager().setUser(channel, user);
+            debug(channel, "injected after " + attempt + " retries");
         }
+    }
+
+    private static final long WARN_INTERVAL_MS = 10_000L;
+    private static volatile long lastWarnAt;
+
+    private static void debug(Channel channel, String message) {
+        if (!PacketEvents.getAPI().getSettings().isDebugEnabled()) return;
+        PacketEvents.getAPI().getLogManager().info("[inject] " + channel.remoteAddress() + " " + message
+                + " pipeline=" + channel.pipeline().names());
+    }
+
+    // A flood of half-open connections must not flood the console too.
+    private static void warnThrottled(Channel channel, String message) {
+        long now = System.currentTimeMillis();
+        if (!PacketEvents.getAPI().getSettings().isDebugEnabled() && now - lastWarnAt < WARN_INTERVAL_MS) return;
+        lastWarnAt = now;
+        PacketEvents.getAPI().getLogManager().warn("[inject] " + channel.remoteAddress() + " " + message
+                + " pipeline=" + channel.pipeline().names());
     }
 
     public static void destroyHandlers(Object ch) {

@@ -78,6 +78,10 @@ public class ServerChannelHandler extends ChannelInboundHandlerAdapter {
             CHECKED_NETTY_VERSION = true;
         }
 
+        if (PacketEvents.getAPI().getSettings().isDebugEnabled()) {
+            PacketEvents.getAPI().getLogManager().info("[inject] accepted " + channel.remoteAddress()
+                    + " netty=" + NETTY_VERSION + " pipeline=" + channel.pipeline().names());
+        }
         //Depends on netty version. If we cannot resolve that we just check server version.
         if ((NETTY_VERSION != null && NETTY_VERSION.isNewerThan(MODERN_NETTY_VERSION))
                 || SpigotReflectionUtil.V_1_12_OR_HIGHER) {

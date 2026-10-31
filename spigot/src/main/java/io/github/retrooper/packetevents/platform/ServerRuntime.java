@@ -30,9 +30,12 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 
 @ApiStatus.Internal
 public final class ServerRuntime {
+    // Declared first: the flags below are computed from it during class initialisation.
+    private static final Pattern NMS_VERSION_SEGMENT = Pattern.compile("v\\d+_\\d+_R\\d+");
     public static final boolean RELOCATED_LIBRARIES = serverUsesRelocatedNetty();
     public static final boolean LEGACY_SERVER = RELOCATED_LIBRARIES || isOneSevenPackage();
 
@@ -161,6 +164,8 @@ public final class ServerRuntime {
             } catch (ClassNotFoundException | LinkageError ignored) {
             }
         }
+        // A plugin's own netty is never on the server's loader, so the relocated copy there is the server's.
+        if (serverClassPresent("net.minecraft.util.io.netty.channel.Channel")) return true;
         return !present("io.netty.channel.Channel") && present("net.minecraft.util.io.netty.channel.Channel");
     }
 
@@ -179,13 +184,24 @@ public final class ServerRuntime {
         }
     }
 
+    // Forks can run a CraftServer subclass in a package of their own, so the version segment is searched for
+    // anywhere in the class's or its superclasses' packages rather than read from the last one.
     public static String nmsPackageVersion() {
         if (Bukkit.getServer() == null) {
             return null;
         }
-        String craftPackage = Bukkit.getServer().getClass().getPackage().getName();
-        String nmsVersion = craftPackage.substring(craftPackage.lastIndexOf('.') + 1);
-        return nmsVersion.startsWith("v") ? nmsVersion : null;
+        for (Class<?> type = Bukkit.getServer().getClass(); type != null && type != Object.class; type = type.getSuperclass()) {
+            String name = type.getName();
+            for (String segment : name.substring(0, Math.max(0, name.lastIndexOf('.'))).split("\\.")) {
+                if (NMS_VERSION_SEGMENT.matcher(segment).matches()) return segment;
+            }
+        }
+        return null;
+    }
+
+    public static String describe() {
+        return "netty=" + NETTY_PACKAGE + "* nms=" + nmsPackageVersion() + " legacy=" + LEGACY_SERVER
+                + " protocolPatch=" + isProtocolPatch() + " server=" + Bukkit.getServer().getClass().getName();
     }
 
     private static boolean present(String className) {

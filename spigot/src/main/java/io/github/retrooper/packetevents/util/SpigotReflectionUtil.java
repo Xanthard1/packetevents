@@ -79,11 +79,13 @@ public final class SpigotReflectionUtil {
 
     static {
         String cbPackage = Bukkit.getServer().getClass().getPackage().getName();
-        String temp;
-        try {
-            temp = cbPackage.replace(".", ",").split(",")[3];
-        } catch (Exception ex) {
-            temp = "";
+        String temp = ServerRuntime.nmsPackageVersion();
+        if (temp == null) {
+            try {
+                temp = cbPackage.replace(".", ",").split(",")[3];
+            } catch (Exception ex) {
+                temp = "";
+            }
         }
         MODIFIED_PACKAGE_NAME = temp;
 

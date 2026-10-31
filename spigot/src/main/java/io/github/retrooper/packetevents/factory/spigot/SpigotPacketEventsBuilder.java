@@ -127,6 +127,8 @@ public class SpigotPacketEventsBuilder {
                     loaded = true;
 
                     this.getLogManager().info("Loaded packetevents v" + PEVersions.RAW + ("packetevents".equals(id) ? "" : " for " + plugin.getName()));
+                    // One line, always: this fork exists for 1.7 servers, and a wrong detection is the first thing to rule out.
+                    this.getLogManager().info("Server runtime: " + ServerRuntime.describe() + ", version " + this.getServerManager().getVersion().name());
                 }
             }
 
