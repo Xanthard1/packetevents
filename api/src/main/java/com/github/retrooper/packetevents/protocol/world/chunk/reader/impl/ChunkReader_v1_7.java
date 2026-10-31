@@ -28,7 +28,9 @@ import com.github.retrooper.packetevents.protocol.world.chunk.reader.ChunkReader
 import com.github.retrooper.packetevents.protocol.world.dimension.DimensionType;
 import com.github.retrooper.packetevents.wrapper.PacketWrapper;
 
+import java.io.ByteArrayOutputStream;
 import java.util.BitSet;
+import java.util.zip.Deflater;
 
 public class ChunkReader_v1_7 implements ChunkReader {
 
@@ -111,7 +113,8 @@ public class ChunkReader_v1_7 implements ChunkReader {
         return chunks;
     }
 
-    public static NetworkChunkData chunksToData(Chunk_v1_7[] chunks, byte[] biomes) {
+    // Takes any section array: a caller that rebuilds a column hands back BaseChunk[], not Chunk_v1_7[].
+    public static NetworkChunkData chunksToData(BaseChunk[] chunks, byte[] biomes) {
         int chunkMask = 0;
         int extendedChunkMask = 0;
         boolean fullChunk = biomes != null;
@@ -127,7 +130,7 @@ public class ChunkReader_v1_7 implements ChunkReader {
         // 5 = Add extended block data.
         for(int pass = 0; pass < 6; pass++) {
             for(int ind = 0; ind < chunks.length; ++ind) {
-                Chunk_v1_7 chunk = chunks[ind];
+                Chunk_v1_7 chunk = chunks[ind] instanceof Chunk_v1_7 ? (Chunk_v1_7) chunks[ind] : null;
                 if(chunk != null && (!fullChunk || !chunk.isEmpty())) {
                     if(pass == 0) {
                         chunkMask |= 1 << ind;
@@ -192,5 +195,23 @@ public class ChunkReader_v1_7 implements ChunkReader {
         }
 
         return new NetworkChunkData(chunkMask, extendedChunkMask, fullChunk, sky, data);
+    }
+
+    // Grows until the stream is finished: data that does not compress would otherwise be cut off at its own length.
+    public static byte[] deflate(byte[] data) {
+        Deflater deflater = new Deflater(Deflater.DEFAULT_COMPRESSION);
+        try {
+            deflater.setInput(data);
+            deflater.finish();
+            ByteArrayOutputStream out = new ByteArrayOutputStream(Math.max(64, data.length / 4));
+            byte[] chunk = new byte[8192];
+            while (!deflater.finished()) {
+                int written = deflater.deflate(chunk);
+                out.write(chunk, 0, written);
+            }
+            return out.toByteArray();
+        } finally {
+            deflater.end();
+        }
     }
 }

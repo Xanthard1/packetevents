@@ -21,19 +21,19 @@ package com.github.retrooper.packetevents.wrapper.play.server;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import com.github.retrooper.packetevents.netty.buffer.ByteBufHelper;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.netty.buffer.UnpooledByteBufAllocationHelper;
 import com.github.retrooper.packetevents.protocol.world.chunk.BaseChunk;
 import com.github.retrooper.packetevents.protocol.world.chunk.NetworkChunkData;
-import com.github.retrooper.packetevents.protocol.world.chunk.impl.v1_7.Chunk_v1_7;
 import com.github.retrooper.packetevents.protocol.world.chunk.impl.v1_8.Chunk_v1_8;
 import com.github.retrooper.packetevents.protocol.world.chunk.reader.impl.ChunkReader_v1_7;
 import com.github.retrooper.packetevents.protocol.world.chunk.reader.impl.ChunkReader_v1_8;
 import com.github.retrooper.packetevents.wrapper.PacketWrapper;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.zip.DataFormatException;
-import java.util.zip.Deflater;
 import java.util.zip.Inflater;
 
 // Credit to MCProtocolLib for this wrapper
@@ -47,7 +47,13 @@ public class WrapperPlayServerChunkDataBulk extends PacketWrapper<WrapperPlaySer
         super(event);
     }
 
-    //TODO Constructor?
+    public WrapperPlayServerChunkDataBulk(int[] x, int[] z, BaseChunk[][] chunks, byte[][] biomeData) {
+        super(PacketType.Play.Server.MAP_CHUNK_BULK);
+        this.x = x;
+        this.z = z;
+        this.chunks = chunks;
+        this.biomeData = biomeData;
+    }
 
     @Override
     public void read() {
@@ -209,7 +215,7 @@ public class WrapperPlayServerChunkDataBulk extends PacketWrapper<WrapperPlaySer
         for (int count = 0; count < this.chunks.length; ++count) {
             BaseChunk[] column = this.chunks[count];
             // Convert chunks into network data.
-            NetworkChunkData data = ChunkReader_v1_7.chunksToData((Chunk_v1_7[]) column, this.biomeData[count]);
+            NetworkChunkData data = ChunkReader_v1_7.chunksToData(column, this.biomeData[count]);
             if (bytes.length < pos + data.getData().length) {
                 byte[] newArray = new byte[pos + data.getData().length];
                 System.arraycopy(bytes, 0, newArray, 0, bytes.length);
@@ -228,25 +234,13 @@ public class WrapperPlayServerChunkDataBulk extends PacketWrapper<WrapperPlaySer
             extendedChunkMask[count] = data.getExtendedChunkMask();
         }
 
-        // Deflate chunk data.
-        Deflater deflater = new Deflater(-1);
-        byte[] deflatedData = new byte[pos];
-        int deflatedLength = pos;
-        try {
-            deflater.setInput(bytes, 0, pos);
-            deflater.finish();
-            deflatedLength = deflater.deflate(deflatedData);
-        } finally {
-            deflater.end();
-        }
+        byte[] deflatedData = ChunkReader_v1_7.deflate(bytes.length == pos ? bytes : Arrays.copyOf(bytes, pos));
 
         // Write data to the network.
         writeShort(this.chunks.length);
-        writeInt(deflatedLength);
+        writeInt(deflatedData.length);
         writeBoolean(skylight);
-        for (int i = 0; i < deflatedLength; i++) {
-            writeByte(deflatedData[i]);
-        }
+        ByteBufHelper.writeBytes(this.buffer, deflatedData, 0, deflatedData.length);
 
         for (int count = 0; count < this.chunks.length; ++count) {
             writeInt(this.x[count]);

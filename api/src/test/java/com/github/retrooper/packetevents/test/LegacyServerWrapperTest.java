@@ -19,6 +19,15 @@
 package com.github.retrooper.packetevents.test;
 
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
+import com.github.retrooper.packetevents.protocol.ConnectionState;
+import com.github.retrooper.packetevents.protocol.nbt.NBTCompound;
+import com.github.retrooper.packetevents.protocol.nbt.NBTString;
+import com.github.retrooper.packetevents.protocol.player.ClientVersion;
+import com.github.retrooper.packetevents.protocol.player.User;
+import com.github.retrooper.packetevents.protocol.world.chunk.BaseChunk;
+import com.github.retrooper.packetevents.protocol.world.chunk.Column;
+import com.github.retrooper.packetevents.protocol.world.chunk.TileEntity;
+import com.github.retrooper.packetevents.protocol.world.chunk.impl.v1_7.Chunk_v1_7;
 import com.github.retrooper.packetevents.protocol.player.UserProfile;
 import com.github.retrooper.packetevents.protocol.potion.PotionTypes;
 import com.github.retrooper.packetevents.test.base.BaseDummyAPITest;
@@ -27,6 +36,9 @@ import com.github.retrooper.packetevents.util.Vector3i;
 import com.github.retrooper.packetevents.wrapper.PacketWrapper;
 import com.github.retrooper.packetevents.wrapper.login.server.WrapperLoginServerLoginSuccess;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBlockChange;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBlockEntityData;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerChunkData;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerChunkDataBulk;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityEffect;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityHeadLook;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityMovement;
@@ -46,6 +58,7 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.UUID;
 import java.util.function.Consumer;
 
@@ -258,6 +271,96 @@ public class LegacyServerWrapperTest extends BaseDummyAPITest {
             assertEquals(255, blocks[1].getY());
             assertArrayEquals(multi, encode(records, version));
         }
+    }
+
+    @Test
+    public void aRewrittenChunkSurvivesTheRoundTrip() {
+        User user = new User(null, ConnectionState.PLAY, ClientVersion.V_1_7_10, new UserProfile(PLAYER, "Tester"));
+        for (ServerVersion version : LEGACY_SERVERS) {
+            Column column = new Column(3, -2, true, column(), new TileEntity[0], new byte[256]);
+            WrapperPlayServerChunkData read = decode(chunk(user, column), version, encode(chunk(user, column), version));
+            BaseChunk section = read.getColumn().getChunks()[4];
+            assertEquals(56 << 4, section.getBlockId(5, 5, 5));
+            assertEquals(35 << 4 | 14, section.getBlockId(0, 0, 0));
+            assertEquals(1 << 4, section.getBlockId(1, 2, 3));
+
+            section.set(5, 5, 5, 1 << 4);
+            BaseChunk[] rebuilt = Arrays.copyOf(read.getColumn().getChunks(), 16, BaseChunk[].class);
+            Column concealed = new Column(3, -2, true, rebuilt, new TileEntity[0], read.getColumn().getBiomeDataBytes());
+            WrapperPlayServerChunkData again = decode(chunk(user, null), version, encode(chunk(user, concealed), version));
+            assertEquals(1 << 4, again.getColumn().getChunks()[4].getBlockId(5, 5, 5));
+            assertEquals(35 << 4 | 14, again.getColumn().getChunks()[4].getBlockId(0, 0, 0));
+        }
+    }
+
+    @Test
+    public void aRewrittenBulkSurvivesTheRoundTrip() {
+        User user = new User(null, ConnectionState.PLAY, ClientVersion.V_1_7_10, new UserProfile(PLAYER, "Tester"));
+        for (ServerVersion version : LEGACY_SERVERS) {
+            WrapperPlayServerChunkDataBulk bulk = bulk(user, new int[]{3, 4}, new int[]{-2, -2},
+                    new BaseChunk[][]{column(), column()}, new byte[][]{new byte[256], new byte[256]});
+            WrapperPlayServerChunkDataBulk read = decode(bulk(user, null, null, null, null), version, encode(bulk, version));
+            assertEquals(2, read.getChunks().length);
+            assertEquals(4, read.getX()[1]);
+            assertEquals(56 << 4, read.getChunks()[1][4].getBlockId(5, 5, 5));
+
+            read.getChunks()[1][4].set(5, 5, 5, 1 << 4);
+            WrapperPlayServerChunkDataBulk again = decode(bulk(user, null, null, null, null), version, encode(read, version));
+            assertEquals(1 << 4, again.getChunks()[1][4].getBlockId(5, 5, 5));
+            assertEquals(56 << 4, again.getChunks()[0][4].getBlockId(5, 5, 5));
+        }
+    }
+
+    @Test
+    public void blockEntityDataUsesIntShortIntPositions() {
+        for (ServerVersion version : LEGACY_SERVERS) {
+            byte[] spawner = bytes(out -> {
+                out.writeInt(100);
+                out.writeShort(64);
+                out.writeInt(-20);
+                out.writeByte(1);
+                out.writeShort(-1);
+            });
+            WrapperPlayServerBlockEntityData read = decode(
+                    new WrapperPlayServerBlockEntityData(new Vector3i(0, 0, 0), 0, null), version, spawner);
+            assertEquals(new Vector3i(100, 64, -20), read.getPosition());
+            assertArrayEquals(spawner, encode(read, version));
+
+            NBTCompound tag = new NBTCompound();
+            tag.setTag("EntityId", new NBTString("Zombie"));
+            WrapperPlayServerBlockEntityData withNbt = decode(
+                    new WrapperPlayServerBlockEntityData(new Vector3i(0, 0, 0), 0, null), version,
+                    encode(new WrapperPlayServerBlockEntityData(new Vector3i(-7, 12, 9), 1, tag), version));
+            assertEquals(new Vector3i(-7, 12, 9), withNbt.getPosition());
+            assertEquals("Zombie", withNbt.getNBT().getStringTagValueOrNull("EntityId"));
+        }
+    }
+
+    // A plain BaseChunk[], as a plugin that rebuilds a column hands it back.
+    private static BaseChunk[] column() {
+        Chunk_v1_7 section = new Chunk_v1_7(true, false);
+        section.set(1, 2, 3, 1 << 4);
+        section.set(5, 5, 5, 56 << 4);
+        section.set(0, 0, 0, 35 << 4 | 14);
+        BaseChunk[] sections = new BaseChunk[16];
+        sections[4] = section;
+        return sections;
+    }
+
+    private static WrapperPlayServerChunkData chunk(User viewer, Column column) {
+        return new WrapperPlayServerChunkData(column) {
+            {
+                this.user = viewer;
+            }
+        };
+    }
+
+    private static WrapperPlayServerChunkDataBulk bulk(User viewer, int[] x, int[] z, BaseChunk[][] chunks, byte[][] biomes) {
+        return new WrapperPlayServerChunkDataBulk(x, z, chunks, biomes) {
+            {
+                this.user = viewer;
+            }
+        };
     }
 
     private static <T extends PacketWrapper<?>> T decode(T wrapper, ServerVersion version, byte[] payload) {

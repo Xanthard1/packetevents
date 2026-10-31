@@ -58,7 +58,9 @@ public class WrapperPlayServerBlockEntityData extends PacketWrapper<WrapperPlayS
 
     @Override
     public void read() {
-        this.position = this.readBlockPosition();
+        // 1.7 sends the position as int, short, int rather than one packed long.
+        this.position = this.serverVersion.isOlderThan(ServerVersion.V_1_8)
+                ? new Vector3i(this.readInt(), this.readShort(), this.readInt()) : this.readBlockPosition();
         int typeId = this.serverVersion.isNewerThanOrEquals(ServerVersion.V_1_18)
                 ? this.readVarInt() : this.readUnsignedByte();
         this.type = BlockEntityTypes.getById(this.serverVersion.toClientVersion(), typeId);
@@ -67,7 +69,13 @@ public class WrapperPlayServerBlockEntityData extends PacketWrapper<WrapperPlayS
 
     @Override
     public void write() {
-        this.writeBlockPosition(this.position);
+        if (this.serverVersion.isOlderThan(ServerVersion.V_1_8)) {
+            this.writeInt(this.position.getX());
+            this.writeShort(this.position.getY());
+            this.writeInt(this.position.getZ());
+        } else {
+            this.writeBlockPosition(this.position);
+        }
         int typeId = this.type.getId(this.serverVersion.toClientVersion());
         if (this.serverVersion.isNewerThanOrEquals(ServerVersion.V_1_18)) {
             this.writeVarInt(typeId);
