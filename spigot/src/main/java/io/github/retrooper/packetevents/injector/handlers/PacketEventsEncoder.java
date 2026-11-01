@@ -127,6 +127,14 @@ public class PacketEventsEncoder extends ChannelOutboundHandlerAdapter {
             // "unvoid" will just make sure we can actually add listeners to this promise...
             // since 1.21.6, mojang will give us void promises when they don't care about the result
             promise = promise.unvoid();
+        } else if (promise == ctx.voidPromise()) {
+            // Netty 4.0 (1.7) has no unvoid and a void promise throws on addListener, failing the write
+            // silently; swap it for a real one that still reports failures the way a void promise does.
+            ChannelPromise real = ctx.newPromise();
+            real.addListener(p -> {
+                if (!p.isSuccess()) ctx.fireExceptionCaught(p.cause());
+            });
+            promise = real;
         }
         promise.addListener(p -> this.promise = oldPromise);
         this.promise = promise;
