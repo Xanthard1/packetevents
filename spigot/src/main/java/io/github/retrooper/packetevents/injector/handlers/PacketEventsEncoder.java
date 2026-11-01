@@ -46,6 +46,7 @@ import org.jspecify.annotations.Nullable;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayDeque;
+import java.util.List;
 import java.util.Queue;
 
 public class PacketEventsEncoder extends ChannelOutboundHandlerAdapter {
@@ -238,18 +239,36 @@ public class PacketEventsEncoder extends ChannelOutboundHandlerAdapter {
 
     private boolean handleCompression(ChannelHandlerContext ctx, ByteBuf buffer) throws InvocationTargetException {
         if (handledCompression) return false;
-        int compressIndex = ctx.pipeline().names().indexOf("compress");
+        // A lookup, not names(): a connection that never compresses (every 1.7 client) asks on each write.
+        if (ctx.pipeline().get("compress") == null) return false;
+        List<String> names = ctx.pipeline().names();
+        int compressIndex = names.indexOf("compress");
         if (compressIndex == -1) return false;
         handledCompression = true;
-        int peEncoderIndex = ctx.pipeline().names().indexOf(PacketEvents.ENCODER_NAME);
+        int peEncoderIndex = names.indexOf(PacketEvents.ENCODER_NAME);
+        if (PacketEvents.getAPI().getSettings().isDebugEnabled()) {
+            PacketEvents.getAPI().getLogManager().info("[inject] " + ctx.channel().remoteAddress()
+                    + " compression appeared, pipeline=" + names);
+        }
         if (peEncoderIndex == -1) return false;
         if (compressIndex > peEncoderIndex) {
             //We are ahead of the decompression handler (they are added dynamically) so let us relocate.
             //But first we need to compress the data and re-compress it after we do all our processing to avoid issues.
-            decompress(ctx, buffer, buffer);
-            //Let us relocate and no longer deal with compression.
-            PacketEventsDecoder decoder = (PacketEventsDecoder) ctx.pipeline().get(PacketEvents.DECODER_NAME);
-            ServerConnectionInitializer.relocateHandlers(ctx.channel(), decoder, user);
+            try {
+                decompress(ctx, buffer, buffer);
+                //Let us relocate and no longer deal with compression.
+                PacketEventsDecoder decoder = (PacketEventsDecoder) ctx.pipeline().get(PacketEvents.DECODER_NAME);
+                ServerConnectionInitializer.relocateHandlers(ctx.channel(), decoder, user);
+            } catch (InvocationTargetException | RuntimeException exception) {
+                // Left where it is, every packet of this connection would be read compressed; say so once.
+                PacketEvents.getAPI().getLogManager().warn("Could not move packetevents behind compression for "
+                        + ctx.channel().remoteAddress() + ", pipeline " + ctx.pipeline().names() + ": " + exception);
+                throw exception;
+            }
+            if (PacketEvents.getAPI().getSettings().isDebugEnabled()) {
+                PacketEvents.getAPI().getLogManager().info("[inject] " + ctx.channel().remoteAddress()
+                        + " moved behind compression, pipeline=" + ctx.pipeline().names());
+            }
             return true;
         }
         return false;

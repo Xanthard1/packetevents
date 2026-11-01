@@ -26,4 +26,7 @@ public interface SpigotInjector extends ChannelInjector {
     void updatePlayer(User user, Object player);
 
     String describeServerConnection();
+
+    // The channel packetevents registered for this connection, when another plugin hands out a wrapper around it.
+    Object ownChannel(Object channel);
 }

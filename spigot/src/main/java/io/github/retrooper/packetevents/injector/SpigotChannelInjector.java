@@ -278,6 +278,17 @@ public class SpigotChannelInjector implements SpigotInjector {
         return (PacketEventsDecoder) channel.pipeline().get(PacketEvents.DECODER_NAME);
     }
 
+    // ProtocolLib 3 swaps the player's channel for a proxy whose pipeline need not be the one users are keyed by;
+    // our decoder still sits in it and knows the real channel.
+    @Override
+    public Object ownChannel(Object channel) {
+        if (!(channel instanceof Channel)) return channel;
+        PacketEventsDecoder decoder = getDecoder((Channel) channel);
+        User user = decoder == null ? null : decoder.user;
+        Object own = user == null ? null : user.getChannel();
+        return own != null ? own : channel;
+    }
+
     @Override
     public boolean isProxy() {
         return false;
