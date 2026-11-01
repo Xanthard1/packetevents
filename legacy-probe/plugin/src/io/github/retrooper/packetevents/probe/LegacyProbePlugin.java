@@ -50,6 +50,11 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSp
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerUpdateHealth;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerWindowConfirmation;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerWindowItems;
+import org.bukkit.Material;
+import org.bukkit.World;
+import org.bukkit.block.Block;
+import org.bukkit.block.Sign;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.HashMap;
@@ -63,6 +68,7 @@ public final class LegacyProbePlugin extends JavaPlugin {
     private final Map<PacketTypeCommon, Function<PacketReceiveEvent, PacketWrapper<?>>> incoming = new HashMap<>();
     private final Map<PacketTypeCommon, Function<PacketSendEvent, PacketWrapper<?>>> outgoing = new HashMap<>();
     private final Map<String, int[]> stats = new TreeMap<>();
+    private boolean signPlaced;
 
     @Override
     public void onEnable() {
@@ -108,6 +114,25 @@ public final class LegacyProbePlugin extends JavaPlugin {
         outgoing.put(PacketType.Play.Server.WINDOW_ITEMS, WrapperPlayServerWindowItems::new);
         outgoing.put(PacketType.Play.Server.PLAYER_INFO, WrapperPlayServerPlayerInfo::new);
         outgoing.put(PacketType.Play.Server.SPAWN_ENTITY, WrapperPlayServerSpawnEntity::new);
+        outgoing.put(PacketType.Play.Server.UPDATE_SIGN, ProbeSignPacket::new);
+        getServer().getScheduler().runTaskTimer(this, () -> {
+            World world = getServer().getWorlds().get(0);
+            if (!signPlaced && !world.getPlayers().isEmpty()) {
+                signPlaced = true;
+                Player near = world.getPlayers().get(0);
+                Block block = world.getBlockAt(near.getLocation().getBlockX() + 2, near.getLocation().getBlockY(), near.getLocation().getBlockZ());
+                block.setType(Material.SIGN_POST);
+                Sign sign = (Sign) block.getState();
+                sign.setLine(0, "probe sign");
+                sign.setLine(2, "third line");
+                sign.update(true);
+                getLogger().info("placed a sign at " + block.getX() + "," + block.getY() + "," + block.getZ());
+            }
+            for (Player player : world.getPlayers()) {
+                getLogger().info("server has " + player.getName() + " at " + String.format("%.2f,%.2f,%.2f",
+                        player.getLocation().getX(), player.getLocation().getY(), player.getLocation().getZ()));
+            }
+        }, 60L, 60L);
 
         PacketEvents.getAPI().getEventManager().registerListener(new PacketListenerAbstract(PacketListenerPriority.MONITOR) {
             @Override
@@ -128,11 +153,14 @@ public final class LegacyProbePlugin extends JavaPlugin {
     private synchronized void record(ProtocolPacketEvent event, Supplier<PacketWrapper<?>> decoder) {
         String key = (event instanceof PacketReceiveEvent ? "C>S " : "S>C ") + event.getPacketType().getName()
                 + "@" + event.getServerVersion().getReleaseName();
-        int[] counts = stats.computeIfAbsent(key, k -> new int[4]);
+        int[] counts = stats.computeIfAbsent(key, k -> new int[5]);
         counts[0]++;
         if (decoder == null) return;
         try {
             boolean copied = event.getLastUsedWrapper() != null;
+            Object buffer = event.getByteBuf();
+            byte[] original = new byte[ByteBufHelper.readableBytes(buffer)];
+            ByteBufHelper.getBytes(buffer, ByteBufHelper.readerIndex(buffer), original);
             PacketWrapper<?> wrapper = decoder.get();
             int left = ByteBufHelper.readableBytes(wrapper.getBuffer());
             if (left != 0 && !copied) {
@@ -140,11 +168,44 @@ public final class LegacyProbePlugin extends JavaPlugin {
                 if (counts[2] <= 3) getLogger().warning(key + " left " + left + " bytes unread");
             }
             describe(key, wrapper, counts);
-            event.setLastUsedWrapper(null);
+            if (!copied) compareReEncode(key, wrapper, buffer, original, counts);
+            // The wrapper stays on the event, so packetevents re-encodes it and the peer receives what a listener would send.
+            event.markForReEncode(true);
         } catch (Throwable failure) {
             counts[1]++;
             if (counts[1] <= 3) getLogger().log(Level.WARNING, key + " failed to decode", failure);
         }
+    }
+
+    private void compareReEncode(String key, PacketWrapper<?> wrapper, Object buffer, byte[] original, int[] counts) {
+        Object scratch = ByteBufHelper.clear(ByteBufHelper.copy(buffer));
+        Object real = wrapper.getBuffer();
+        try {
+            wrapper.setBuffer(scratch);
+            wrapper.write();
+            byte[] again = new byte[ByteBufHelper.readableBytes(scratch)];
+            ByteBufHelper.getBytes(scratch, ByteBufHelper.readerIndex(scratch), again);
+            int at = firstDifference(original, again);
+            if (at < 0) return;
+            counts[4]++;
+            if (counts[4] <= 2) getLogger().warning(key + " re-encodes differently at byte " + at + " of " + original.length
+                    + " (now " + again.length + "): was " + hex(original, at) + " now " + hex(again, at));
+        } finally {
+            wrapper.setBuffer(real);
+            ByteBufHelper.release(scratch);
+        }
+    }
+
+    private static int firstDifference(byte[] a, byte[] b) {
+        int shared = Math.min(a.length, b.length);
+        for (int i = 0; i < shared; i++) if (a[i] != b[i]) return i;
+        return a.length == b.length ? -1 : shared;
+    }
+
+    private static String hex(byte[] bytes, int from) {
+        StringBuilder out = new StringBuilder();
+        for (int i = from; i < Math.min(bytes.length, from + 12); i++) out.append(String.format("%02x", bytes[i] & 0xFF));
+        return out.length() == 0 ? "<end>" : out.toString();
     }
 
     private void describe(String key, PacketWrapper<?> wrapper, int[] counts) {
@@ -164,6 +225,9 @@ public final class LegacyProbePlugin extends JavaPlugin {
         } else if (wrapper instanceof WrapperPlayClientPlayerFlying) {
             WrapperPlayClientPlayerFlying flying = (WrapperPlayClientPlayerFlying) wrapper;
             getLogger().info(key + " pos=" + flying.getLocation().getPosition() + " ground=" + flying.isOnGround());
+        } else if (wrapper instanceof ProbeSignPacket) {
+            ProbeSignPacket sign = (ProbeSignPacket) wrapper;
+            getLogger().info(key + " " + sign.position() + " " + sign.data());
         } else if (wrapper instanceof WrapperPlayServerBlockChange) {
             WrapperPlayServerBlockChange change = (WrapperPlayServerBlockChange) wrapper;
             getLogger().info(key + " " + change.getBlockPosition() + " -> " + change.getBlockState().getType().getName());
@@ -189,10 +253,10 @@ public final class LegacyProbePlugin extends JavaPlugin {
 
     @Override
     public synchronized void onDisable() {
-        getLogger().info("probe report (seen / failed / leftover)");
+        getLogger().info("probe report (seen / failed / leftover / re-encoded differently)");
         for (Map.Entry<String, int[]> entry : stats.entrySet()) {
             int[] c = entry.getValue();
-            getLogger().info(String.format("  %-60s %6d %4d %4d", entry.getKey(), c[0], c[1], c[2]));
+            getLogger().info(String.format("  %-60s %6d %4d %4d %4d", entry.getKey(), c[0], c[1], c[2], c[4]));
         }
     }
 }

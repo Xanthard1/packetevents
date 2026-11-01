@@ -1,11 +1,12 @@
 param(
     [ValidateSet('1.7.2', '1.7.5', '1.7.9', '1.7.10')][string]$Server = '1.7.10',
     [int]$Seconds = 20,
-    [string[]]$Extra = @()
+    [string[]]$Extra = @(),
+    [string]$PacketEvents = "$PSScriptRoot\..\build\libs\packetevents-spigot-2.14.0.jar"
 )
 $ErrorActionPreference = 'Stop'
 $workspace = (Resolve-Path "$PSScriptRoot\..\..\..").Path
-$pe = (Resolve-Path "$PSScriptRoot\..\build\libs\packetevents-spigot-2.14.0.jar").Path
+$pe = (Resolve-Path $PacketEvents).Path
 $probe = & "$PSScriptRoot\build.ps1"
 $protocol = if ($Server -in '1.7.2', '1.7.5') { 4 } else { 5 }
 $ports = @{ '1.7.2' = 25572; '1.7.5' = 25575; '1.7.9' = 25579; '1.7.10' = 25570 }

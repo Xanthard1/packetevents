@@ -29,7 +29,7 @@ public class WrapperPlayServerPlayerPositionAndLook extends PacketWrapper<Wrappe
      * Removed in 1.19.3
      */
     @ApiStatus.Obsolete
-    private boolean dismountVehicle = false;
+    private boolean dismountVehicle;
 
     public WrapperPlayServerPlayerPositionAndLook(PacketSendEvent event) {
         super(event);

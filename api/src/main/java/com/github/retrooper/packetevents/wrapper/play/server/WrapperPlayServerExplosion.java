@@ -88,7 +88,7 @@ public class WrapperPlayServerExplosion extends PacketWrapper<WrapperPlayServerE
     /**
      * @versions 26.3+
      */
-    private boolean playSound = true;
+    private boolean playSound;
 
     public WrapperPlayServerExplosion(PacketSendEvent event) {
         super(event);
@@ -131,6 +131,7 @@ public class WrapperPlayServerExplosion extends PacketWrapper<WrapperPlayServerE
             BlockInteraction blockInteraction, Sound explosionSound, WeightedList<ParticleInfo> blockParticles
     ) {
         super(PacketType.Play.Server.EXPLOSION);
+        this.playSound = true;
         this.position = position;
         this.strength = strength;
         this.blockCount = records.size();
@@ -166,6 +167,7 @@ public class WrapperPlayServerExplosion extends PacketWrapper<WrapperPlayServerE
             Sound explosionSound, WeightedList<ParticleInfo> blockParticles
     ) {
         super(PacketType.Play.Server.EXPLOSION);
+        this.playSound = true;
         this.position = position;
         this.strength = strength;
         this.blockCount = blockCount;

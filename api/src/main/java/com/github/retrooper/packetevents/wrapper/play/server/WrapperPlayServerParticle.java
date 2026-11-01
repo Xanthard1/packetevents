@@ -53,7 +53,7 @@ public class WrapperPlayServerParticle extends PacketWrapper<WrapperPlayServerPa
     /**
      * @versions 26.3+
      */
-    private RandomizationType randomizationType = RandomizationType.DEFAULT;
+    private RandomizationType randomizationType;
 
     public WrapperPlayServerParticle(PacketSendEvent event) {
         super(event);
@@ -74,6 +74,7 @@ public class WrapperPlayServerParticle extends PacketWrapper<WrapperPlayServerPa
             float maxSpeed, int particleCount, boolean alwaysShow
     ) {
         super(PacketType.Play.Server.PARTICLE);
+        this.randomizationType = RandomizationType.DEFAULT;
         this.particle = particle;
         this.longDistance = longDistance;
         this.position = position;

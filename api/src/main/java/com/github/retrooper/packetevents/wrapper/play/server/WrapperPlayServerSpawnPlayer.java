@@ -49,8 +49,8 @@ public class WrapperPlayServerSpawnPlayer extends PacketWrapper<WrapperPlayServe
     @Deprecated
     private ItemType item;
     private List<EntityData<?>> entityMetadata;
-    private String legacyName = "";
-    private List<TextureProperty> legacyProperties = new ArrayList<>();
+    private String legacyName;
+    private List<TextureProperty> legacyProperties;
 
     public WrapperPlayServerSpawnPlayer(PacketSendEvent event) {
         super(event);
@@ -70,6 +70,8 @@ public class WrapperPlayServerSpawnPlayer extends PacketWrapper<WrapperPlayServe
 
     public WrapperPlayServerSpawnPlayer(int entityID, UUID uuid, Vector3d position, float yaw, float pitch, List<EntityData<?>> entityMetadata) {
         super(PacketType.Play.Server.SPAWN_PLAYER);
+        this.legacyName = "";
+        this.legacyProperties = new ArrayList<>();
         this.entityID = entityID;
         this.uuid = uuid;
         this.position = position;
@@ -88,6 +90,8 @@ public class WrapperPlayServerSpawnPlayer extends PacketWrapper<WrapperPlayServe
         entityID = readVarInt();
         if (serverVersion.isNewerThanOrEquals(ServerVersion.V_1_8)) {
             uuid = readUUID();
+            legacyName = "";
+            legacyProperties = new ArrayList<>();
         } else {
             uuid = UUIDUtil.fromStringAnyFormat(readString());
             legacyName = readString(16);

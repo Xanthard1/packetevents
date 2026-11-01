@@ -32,6 +32,8 @@ public class WrapperPlayClientPlayerFlying extends PacketWrapper<WrapperPlayClie
     private Location location;
     private boolean onGround;
     private boolean horizontalCollision;
+    // 1.7 sends the eye Y (stance) after the feet Y; kept as an offset so a moved Y and a sneaking stance survive.
+    private double legacyStanceOffset = 1.62;
 
     public WrapperPlayClientPlayerFlying(PacketReceiveEvent event) {
         super(event, false);
@@ -73,8 +75,7 @@ public class WrapperPlayClientPlayerFlying extends PacketWrapper<WrapperPlayClie
             double x = readDouble();
             double y = readDouble();
             if (this.serverVersion.isOlderThanOrEquals(ServerVersion.V_1_7_10)) {
-                //Can be ignored, cause stance = (y + 1.62)
-                double stance = readDouble();
+                legacyStanceOffset = readDouble() - y;
             }
             double z = readDouble();
             position = new Vector3d(x, y, z);
@@ -93,11 +94,10 @@ public class WrapperPlayClientPlayerFlying extends PacketWrapper<WrapperPlayClie
     public void write() {
         if (positionChanged) {
             writeDouble(location.getPosition().getX());
-            if (this.serverVersion.isOlderThanOrEquals(ServerVersion.V_1_7_10)) {
-                //Can be ignored, cause stance = (y + 1.62)
-                writeDouble(location.getPosition().getY() + 1.62);
-            }
             writeDouble(location.getPosition().getY());
+            if (this.serverVersion.isOlderThanOrEquals(ServerVersion.V_1_7_10)) {
+                writeDouble(location.getPosition().getY() + legacyStanceOffset);
+            }
             writeDouble(location.getPosition().getZ());
         }
         if (rotationChanged) {
@@ -114,6 +114,7 @@ public class WrapperPlayClientPlayerFlying extends PacketWrapper<WrapperPlayClie
         location = wrapper.location;
         onGround = wrapper.onGround;
         horizontalCollision = wrapper.horizontalCollision;
+        legacyStanceOffset = wrapper.legacyStanceOffset;
     }
 
     public Location getLocation() {

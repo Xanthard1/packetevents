@@ -30,11 +30,13 @@ import com.github.retrooper.packetevents.protocol.world.chunk.TileEntity;
 import com.github.retrooper.packetevents.protocol.world.chunk.impl.v1_7.Chunk_v1_7;
 import com.github.retrooper.packetevents.protocol.player.UserProfile;
 import com.github.retrooper.packetevents.protocol.potion.PotionTypes;
+import com.github.retrooper.packetevents.protocol.world.Location;
 import com.github.retrooper.packetevents.test.base.BaseDummyAPITest;
 import com.github.retrooper.packetevents.util.Vector3d;
 import com.github.retrooper.packetevents.util.Vector3i;
 import com.github.retrooper.packetevents.wrapper.PacketWrapper;
 import com.github.retrooper.packetevents.wrapper.login.server.WrapperLoginServerLoginSuccess;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerFlying;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBlockChange;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBlockEntityData;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerChunkData;
@@ -337,6 +339,31 @@ public class LegacyServerWrapperTest extends BaseDummyAPITest {
     }
 
     // A plain BaseChunk[], as a plugin that rebuilds a column hands it back.
+    @Test
+    public void playerPositionKeepsFeetBeforeStanceWhenReEncoded() {
+        for (ServerVersion version : LEGACY_SERVERS) {
+            byte[] sneaking = bytes(out -> {
+                out.writeDouble(10.5);
+                out.writeDouble(64.0);
+                out.writeDouble(65.54);
+                out.writeDouble(-3.25);
+                out.writeFloat(90.0f);
+                out.writeFloat(15.0f);
+                out.writeByte(1);
+            });
+            WrapperPlayClientPlayerFlying flying = decode(
+                    new WrapperPlayClientPlayerFlying(true, true, false, new Location(0, 0, 0, 0, 0)), version, sneaking);
+            assertEquals(64.0, flying.getLocation().getY(), 1e-9);
+            assertArrayEquals(sneaking, encode(flying, version));
+
+            flying.setLocation(new Location(10.5, 70.0, -3.25, 90.0f, 15.0f));
+            ByteBuf moved = Unpooled.wrappedBuffer(encode(flying, version));
+            moved.skipBytes(8);
+            assertEquals(70.0, moved.readDouble(), 1e-9);
+            assertEquals(71.54, moved.readDouble(), 1e-9);
+        }
+    }
+
     private static BaseChunk[] column() {
         Chunk_v1_7 section = new Chunk_v1_7(true, false);
         section.set(1, 2, 3, 1 << 4);
