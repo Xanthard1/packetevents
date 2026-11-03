@@ -19,12 +19,16 @@
 package io.github.retrooper.packetevents.netty.channel;
 
 import com.github.retrooper.packetevents.netty.channel.ChannelOperator;
+import io.github.retrooper.packetevents.platform.ServerRuntime;
+import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandlerContext;
 
 import java.net.SocketAddress;
 import java.util.List;
 
 public class ChannelOperatorModernImpl implements ChannelOperator {
+    private static final String VANILLA_ENCODER = "encoder";
     @Override
     public SocketAddress remoteAddress(Object channel) {
         return ((Channel) channel).remoteAddress();
@@ -47,7 +51,8 @@ public class ChannelOperatorModernImpl implements ChannelOperator {
 
     @Override
     public Object write(Object channel, Object buffer) {
-        return ((Channel) channel).write(buffer);
+        ChannelHandlerContext entry = encodedEntry((Channel) channel, buffer);
+        return entry == null ? ((Channel) channel).write(buffer) : entry.write(buffer);
     }
 
     @Override
@@ -57,7 +62,15 @@ public class ChannelOperatorModernImpl implements ChannelOperator {
 
     @Override
     public Object writeAndFlush(Object channel, Object buffer) {
-        return ((Channel) channel).writeAndFlush(buffer);
+        ChannelHandlerContext entry = encodedEntry((Channel) channel, buffer);
+        return entry == null ? ((Channel) channel).writeAndFlush(buffer) : entry.writeAndFlush(buffer);
+    }
+
+    // 1.7's PacketEncoder is a raw MessageToByteEncoder: it claims every outbound message and throws on one
+    // that is already a buffer. Encoded packets enter just past it, so they still reach our encoder.
+    private static ChannelHandlerContext encodedEntry(Channel channel, Object message) {
+        if (!ServerRuntime.LEGACY_SERVER || !(message instanceof ByteBuf)) return null;
+        return channel.pipeline().context(VANILLA_ENCODER);
     }
 
     @Override

@@ -7,6 +7,8 @@ import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.github.retrooper.packetevents.netty.buffer.ByteBufHelper;
+import com.github.retrooper.packetevents.netty.channel.ChannelHelper;
+import com.github.retrooper.packetevents.util.Vector3i;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.github.retrooper.packetevents.protocol.world.chunk.BaseChunk;
@@ -131,6 +133,7 @@ public final class LegacyProbePlugin extends JavaPlugin {
             for (Player player : world.getPlayers()) {
                 getLogger().info("server has " + player.getName() + " at " + String.format("%.2f,%.2f,%.2f",
                         player.getLocation().getX(), player.getLocation().getY(), player.getLocation().getZ()));
+                sendFromPlugin(player);
             }
         }, 60L, 60L);
 
@@ -148,6 +151,36 @@ public final class LegacyProbePlugin extends JavaPlugin {
             }
         });
         getLogger().info("probing " + PacketEvents.getAPI().getServerManager().getVersion());
+    }
+
+    // A packet a plugin writes is already encoded; 1.7's raw PacketEncoder used to throw on it and drop every one.
+    private void sendFromPlugin(Player player) {
+        Object channel = PacketEvents.getAPI().getPlayerManager().getChannel(player);
+        if (channel == null) return;
+        Block below = player.getLocation().getBlock().getRelative(0, -1, 0);
+        WrapperPlayServerBlockChange change = new WrapperPlayServerBlockChange(
+                new Vector3i(below.getX(), below.getY(), below.getZ()), WrappedBlockState.getByGlobalId(
+                        PacketEvents.getAPI().getServerManager().getVersion().toClientVersion(), below.getTypeId() << 4));
+        ChannelHelper.runInEventLoop(channel, () -> {
+            Object[] buffers = PacketEvents.getAPI().getProtocolManager().transformWrappers(change, channel, true);
+            for (Object buffer : buffers) {
+                Object future = ChannelHelper.writeAndFlush(channel, buffer);
+                getServer().getScheduler().runTaskLater(this, () -> recordPluginSend(future), 10L);
+            }
+        });
+    }
+
+    private synchronized void recordPluginSend(Object future) {
+        int[] counts = stats.computeIfAbsent("PLUGIN write BLOCK_CHANGE", k -> new int[5]);
+        counts[0]++;
+        try {
+            if (Boolean.TRUE.equals(future.getClass().getMethod("isSuccess").invoke(future))) return;
+            counts[1]++;
+            Object cause = future.getClass().getMethod("cause").invoke(future);
+            if (counts[1] <= 3) getLogger().warning("plugin write failed: " + cause);
+        } catch (ReflectiveOperationException failure) {
+            counts[1]++;
+        }
     }
 
     private synchronized void record(ProtocolPacketEvent event, Supplier<PacketWrapper<?>> decoder) {
