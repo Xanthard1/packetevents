@@ -52,7 +52,7 @@ public class ChannelOperatorModernImpl implements ChannelOperator {
     @Override
     public Object write(Object channel, Object buffer) {
         ChannelHandlerContext entry = encodedEntry((Channel) channel, buffer);
-        return entry == null ? ((Channel) channel).write(buffer) : entry.write(buffer);
+        return FailedWriteReporter.watch(entry == null ? ((Channel) channel).write(buffer) : entry.write(buffer));
     }
 
     @Override
@@ -63,7 +63,7 @@ public class ChannelOperatorModernImpl implements ChannelOperator {
     @Override
     public Object writeAndFlush(Object channel, Object buffer) {
         ChannelHandlerContext entry = encodedEntry((Channel) channel, buffer);
-        return entry == null ? ((Channel) channel).writeAndFlush(buffer) : entry.writeAndFlush(buffer);
+        return FailedWriteReporter.watch(entry == null ? ((Channel) channel).writeAndFlush(buffer) : entry.writeAndFlush(buffer));
     }
 
     // 1.7's PacketEncoder is a raw MessageToByteEncoder: it claims every outbound message and throws on one
@@ -80,7 +80,7 @@ public class ChannelOperatorModernImpl implements ChannelOperator {
 
     @Override
     public Object writeInContext(Object channel, String ctx, Object buffer) {
-        return ((Channel) channel).pipeline().context(ctx).write(buffer);
+        return FailedWriteReporter.watch(((Channel) channel).pipeline().context(ctx).write(buffer));
     }
 
     @Override
@@ -90,7 +90,7 @@ public class ChannelOperatorModernImpl implements ChannelOperator {
 
     @Override
     public Object writeAndFlushInContext(Object channel, String ctx, Object buffer) {
-        return ((Channel) channel).pipeline().context(ctx).writeAndFlush(buffer);
+        return FailedWriteReporter.watch(((Channel) channel).pipeline().context(ctx).writeAndFlush(buffer));
     }
 
     @Override
